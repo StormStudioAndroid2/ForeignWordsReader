@@ -1,0 +1,39 @@
+[versions]
+
+project = "1.0.0"
+kotlin = "2.1.21"
+agp = "8.7.3"
+jvmTarget = "11"
+
+android-minSdk = "24"
+android-compileSdk = "35"
+android-targetSdk = "35"
+
+compose = "1.8.1"
+compose-materialIcons = "1.7.3"
+
+androidx-activityCompose = "1.9.0"
+
+decompose = "3.4.0-alpha02"
+essenty = "2.5.0"
+
+[plugins]
+
+kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
+kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
+kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
+kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+android-application = { id = "com.android.application", version.ref = "agp" }
+android-library = { id = "com.android.library", version.ref = "agp" }
+jetbrains-compose = { id = "org.jetbrains.compose", version.ref = "compose" }
+
+[libraries]
+
+androidx-activity-activityCompose = { group = "androidx.activity", name = "activity-compose", version.ref = "androidx-activityCompose" }
+
+decompose-decompose = { group = "com.arkivanov.decompose", name = "decompose", version.ref = "decompose" }
+decompose-extensionsComposeJetbrains = { group = "com.arkivanov.decompose", name = "extensions-compose", version.ref = "decompose" }
+
+essenty-lifecycle = { group = "com.arkivanov.essenty", name = "lifecycle", version.ref = "essenty" }
+
+compose-material-iconsCore = { group = "org.jetbrains.compose.material", name = "material-icons-core", version.ref = "compose-materialIcons" }
