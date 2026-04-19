@@ -1,0 +1,38 @@
+CREATE TABLE book (
+  id TEXT NOT NULL PRIMARY KEY,
+  uri_string TEXT NOT NULL UNIQUE,
+  title TEXT NOT NULL,
+  author TEXT NOT NULL,
+  cover_uri_string TEXT,
+  last_opened_at_millis INTEGER NOT NULL
+);
+
+selectRecentBooks:
+SELECT *
+FROM book
+ORDER BY last_opened_at_millis DESC;
+
+selectByUri:
+SELECT *
+FROM book
+WHERE uri_string = ?;
+
+countBooks:
+SELECT COUNT(*)
+FROM book;
+
+upsertBook:
+INSERT OR REPLACE INTO book(
+  id,
+  uri_string,
+  title,
+  author,
+  cover_uri_string,
+  last_opened_at_millis
+)
+VALUES (?, ?, ?, ?, ?, ?);
+
+updateLastOpened:
+UPDATE book
+SET last_opened_at_millis = ?
+WHERE uri_string = ?;

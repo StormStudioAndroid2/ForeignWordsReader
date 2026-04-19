@@ -18,24 +18,28 @@ struct StackView<T: AnyObject, Content: View>: View {
     var body: some View {
         // iOS 16.0 has an issue with swipe back see https://stackoverflow.com/questions/73978107/incomplete-swipe-back-gesture-causes-navigationpath-mismanagement
         if #available(iOS 16.1, *) {
-            NavigationStack(
-                path: Binding(
-                    get: { stack.dropFirst() },
-                    set: { updatedPath in onBack(Int32(updatedPath.count)) }
-                )
-            ) {
-                let firstChildInstance = stack.first!.instance!
-                let _ = NSLog("Child: \(firstChildInstance)")
-                childContent(firstChildInstance)
-                    .navigationDestination(for: Child<AnyObject, T>.self) {
-                        childContent($0.instance!)
-                            .navigationTitle(getTitle(firstChildInstance))
-                    }
-                    .navigationTitle(getTitle(firstChildInstance))
+            if let firstChildInstance = stack.first?.instance {
+                NavigationStack(
+                    path: Binding(
+                        get: { Array(stack.dropFirst()) },
+                        set: { updatedPath in onBack(Int32(updatedPath.count)) }
+                    )
+                ) {
+                    childContent(firstChildInstance)
+                        .navigationDestination(for: Child<AnyObject, T>.self) { child in
+                            if let instance = child.instance {
+                                childContent(instance)
+                                    .navigationTitle(getTitle(instance))
+                            }
+                        }
+                        .navigationTitle(getTitle(firstChildInstance))
+                }
+            } else {
+                EmptyView()
             }
         } else {
             StackInteropView(
-                components: stack.map { $0.instance! },
+                components: stack.compactMap { $0.instance },
                 getTitle: getTitle,
                 onBack: onBack,
                 childContent: childContent
@@ -57,14 +61,17 @@ private struct StackInteropView<T: AnyObject, Content: View>: UIViewControllerRe
     func makeUIViewController(context: Context) -> UINavigationController {
         context.coordinator.syncChanges(self)
         let navigationController = UINavigationController(
-            rootViewController: context.coordinator.viewControllers.first!)
+            rootViewController: context.coordinator.viewControllers.first ?? UIViewController())
         
         return navigationController
     }
     
     func updateUIViewController(_ navigationController: UINavigationController, context: Context) {
         context.coordinator.syncChanges(self)
-        navigationController.setViewControllers(context.coordinator.viewControllers, animated: true)
+        let viewControllers: [UIViewController] = context.coordinator.viewControllers.isEmpty
+            ? [UIViewController()]
+            : context.coordinator.viewControllers
+        navigationController.setViewControllers(viewControllers, animated: true)
     }
     
     private func createViewController(_ component: T, _ coordinator: Coordinator) -> NavigationItemHostingController {

@@ -32,6 +32,7 @@ android {
     }
 
     compileOptions {
+        isCoreLibraryDesugaringEnabled = true
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
@@ -45,5 +46,13 @@ dependencies {
     implementation(project(":shared"))
     implementation(project(":compose-ui"))
     implementation(libs.androidx.activity.activityCompose)
+    implementation(libs.androidx.fragment.ktx)
+    implementation(libs.decompose.extensionsComposeJetbrains)
+    implementation(libs.readium.shared)
+    implementation(libs.readium.streamer)
+    implementation(libs.readium.navigator)
+    implementation(compose.ui)
     implementation(compose.foundation)
+    implementation(compose.material)
+    coreLibraryDesugaring(libs.android.tools.desugarJdkLibs)
 }

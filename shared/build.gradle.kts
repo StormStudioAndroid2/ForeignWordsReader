@@ -7,6 +7,7 @@ plugins {
     alias(libs.plugins.kotlin.multiplatform)
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.serialization)
+    alias(libs.plugins.sqldelight)
 }
 
 kotlin {
@@ -43,12 +44,31 @@ kotlin {
             dependencies {
                 api(libs.decompose.decompose)
                 api(libs.essenty.lifecycle)
+                implementation(libs.sqldelight.runtime)
+            }
+        }
+        val androidMain by getting {
+            dependencies {
+                implementation(libs.sqldelight.androidDriver)
+            }
+        }
+        val iosMain by getting {
+            dependencies {
+                implementation(libs.sqldelight.nativeDriver)
             }
         }
         val commonTest by getting {
             dependencies {
                 implementation(kotlin("test"))
             }
+        }
+    }
+}
+
+sqldelight {
+    databases {
+        create("BookDatabase") {
+            packageName.set("com.example.myapplication.shared.data")
         }
     }
 }

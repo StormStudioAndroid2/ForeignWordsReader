@@ -1,18 +1,22 @@
 package com.example.myapplication.root
 
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Surface
+import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
 import com.arkivanov.decompose.extensions.compose.stack.Children
 import com.arkivanov.decompose.extensions.compose.stack.animation.fade
 import com.arkivanov.decompose.extensions.compose.stack.animation.plus
 import com.arkivanov.decompose.extensions.compose.stack.animation.scale
 import com.arkivanov.decompose.extensions.compose.stack.animation.stackAnimation
+import com.arkivanov.decompose.extensions.compose.subscribeAsState
 import com.example.myapplication.main.MainContent
 import com.example.myapplication.shared.root.RootComponent
 import com.example.myapplication.shared.root.RootComponent.Child
@@ -32,9 +36,24 @@ fun RootContent(
             ) {
                 when (val instance = it.instance) {
                     is Child.Main -> MainContent(component = instance.component)
+                    is Child.Reader -> UnsupportedReaderContent(component = instance.component)
                     is Child.Welcome -> WelcomeContent(component = instance.component)
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun UnsupportedReaderContent(
+    component: com.example.myapplication.shared.reader.ReaderComponent,
+    modifier: Modifier = Modifier,
+) {
+    val model = component.model.subscribeAsState()
+    Box(
+        modifier = modifier.fillMaxSize(),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(model.value.errorMessage ?: "EPUB reading is available on Android only.")
     }
 }

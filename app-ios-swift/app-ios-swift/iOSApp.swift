@@ -15,6 +15,9 @@ struct iOSApp: App {
 
 class AppDelegate: NSObject, UIApplicationDelegate {
     let root: RootComponent = DefaultRootComponent(
-        componentContext: DefaultComponentContext(lifecycle: ApplicationLifecycle())
+        componentContext: DefaultComponentContext(lifecycle: ApplicationLifecycle()),
+        readerComponentFactory: IosReaderComponentFactory(),
+        bookLibraryGateway: IosBookLibraryGateway(),
+        initialReaderUriString: IosReaderPersistence.lastReadableEpubUriString()
     )
 }
