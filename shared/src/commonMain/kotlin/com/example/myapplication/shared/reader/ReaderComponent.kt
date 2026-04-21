@@ -17,6 +17,7 @@ interface ReaderComponent {
         val errorMessage: String? = null,
         val readingProgress: Double = 0.0,
         val currentPage: Int = 0,
+        val title: String
     )
 
     enum class Status {

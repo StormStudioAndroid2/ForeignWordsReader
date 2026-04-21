@@ -16,6 +16,7 @@ class UnsupportedReaderComponent(
                 uriString = uriString,
                 status = ReaderComponent.Status.Error,
                 errorMessage = "EPUB reading is available on Android only.",
+                title = "Error"
             ),
         )
 

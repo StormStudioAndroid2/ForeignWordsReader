@@ -121,7 +121,8 @@ final class IosReaderRuntime {
                 status: .ready,
                 reader: reader,
                 readingProgress: restoredLocator?.readingProgress ?? 0,
-                currentPage: Int32(restoredLocator?.locations.position ?? 0)
+                currentPage: Int32(restoredLocator?.locations.position ?? 0),
+                title: publication.metadata.title
             )
         } catch is CancellationError {
             return
@@ -151,7 +152,8 @@ final class IosReaderRuntime {
             status: model.value.status,
             errorMessage: model.value.errorMessage,
             readingProgress: readingProgress,
-            currentPage: currentPage
+            currentPage: currentPage,
+            title: model.value.title
         )
     }
 
@@ -175,7 +177,8 @@ final class IosReaderRuntime {
         message: String? = nil,
         reader: IosEpubReaderViewController? = nil,
         readingProgress: Double = 0,
-        currentPage: Int32 = 0
+        currentPage: Int32 = 0,
+        title: String? = nil
     ) {
         guard !isClosed else { return }
 
@@ -184,7 +187,8 @@ final class IosReaderRuntime {
             status: status,
             errorMessage: message,
             readingProgress: readingProgress,
-            currentPage: currentPage
+            currentPage: currentPage,
+            title: title ?? ""
         )
 
         if let reader {

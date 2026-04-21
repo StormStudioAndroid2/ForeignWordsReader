@@ -19,12 +19,12 @@ struct ReaderView: View {
 
     var body: some View {
         content
-            .navigationBarTitle("EPUB Reader", displayMode: .inline)
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button("Back", action: component.onBackClicked)
-                }
-            }
+            .navigationBarTitle(readerTitle, displayMode: .inline)
+    }
+
+    private var readerTitle: String {
+        let trimmedTitle = model.title.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmedTitle.isEmpty ? "EPUB Reader" : trimmedTitle
     }
 
     @ViewBuilder
@@ -40,6 +40,7 @@ struct ReaderView: View {
                         overlayVisible.toggle()
                     }
                 )
+                .padding([.bottom, .top])
                 ReaderChromeOverlay(
                     visible: overlayVisible,
                     progress: model.readingProgress,

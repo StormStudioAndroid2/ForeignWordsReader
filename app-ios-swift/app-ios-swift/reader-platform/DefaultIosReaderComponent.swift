@@ -25,7 +25,8 @@ final class DefaultIosReaderComponent: ReaderComponent {
             status: ReaderComponentStatus.loading,
             errorMessage: nil,
             readingProgress: 0,
-            currentPage: 0
+            currentPage: 0,
+            title: ""
         )
         self.mutableModel = mutableValue(initialModel)
 
@@ -63,7 +64,8 @@ final class DefaultIosReaderComponent: ReaderComponent {
             status: mutableModel.value.status,
             errorMessage: mutableModel.value.errorMessage,
             readingProgress: readingProgress,
-            currentPage: currentPage
+            currentPage: currentPage,
+            title: mutableModel.value.title
         )
     }
 }

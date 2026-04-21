@@ -97,6 +97,7 @@ internal class DefaultAndroidReaderComponent(
             ReaderComponent.Model(
                 uriString = uriString,
                 status = ReaderComponent.Status.Loading,
+                title = "Loading"
             ),
         )
         val androidModel = MutableValue<AndroidReaderModel>(
@@ -129,6 +130,7 @@ internal class DefaultAndroidReaderComponent(
                 model.value = ReaderComponent.Model(
                     uriString = uriString,
                     status = ReaderComponent.Status.Loading,
+                    title = "Loading"
                 )
                 androidModel.value = AndroidReaderModel.Loading(uriString = uriString)
 
@@ -144,6 +146,7 @@ internal class DefaultAndroidReaderComponent(
                         status = ReaderComponent.Status.Ready,
                         readingProgress = ready.readingProgress,
                         currentPage = ready.currentPage,
+                        title = ready.publication.metadata.title.normalizedOr("Untitled book")
                     )
                     androidModel.value = AndroidReaderModel.Ready(
                         uriString = uriString,
@@ -151,15 +154,16 @@ internal class DefaultAndroidReaderComponent(
                         fragmentFactory = ready.fragmentFactory,
                         publication = ready.publication,
                     )
-                    preferences.edit()
-                        .putString(LastEpubUriKey, uriString)
-                        .apply()
+                    preferences.edit {
+                        putString(LastEpubUriKey, uriString)
+                    }
                 }.onFailure { error ->
                     val message = error.message ?: "Could not open this EPUB."
                     model.value = ReaderComponent.Model(
                         uriString = uriString,
                         status = ReaderComponent.Status.Error,
                         errorMessage = message,
+                        title = "Error"
                     )
                     androidModel.value = AndroidReaderModel.Error(
                         uriString = uriString,
@@ -170,7 +174,7 @@ internal class DefaultAndroidReaderComponent(
         }
 
         private suspend fun openPublication(): ReadyPublication {
-            val uri = Uri.parse(uriString)
+            val uri = uriString.toUri()
             takePersistableReadPermission(uri)
 
             val absoluteUrl = uri.toAbsoluteUrl()
@@ -277,6 +281,9 @@ internal fun lastReadableEpubUriString(context: Context): String? {
 }
 
 private fun locatorKey(uriString: String): String = "locator:$uriString"
+
+private fun String?.normalizedOr(fallback: String): String =
+    this?.trim()?.takeIf(String::isNotEmpty) ?: fallback
 
 private val Locator.readingProgress: Double
     get() = (locations.totalProgression ?: locations.progression ?: 0.0).coerceIn(0.0, 1.0)

@@ -116,9 +116,9 @@ internal class AndroidBookLibraryGateway(
             val book = BookItem(
                 id = id,
                 uriString = uriString,
-                title = publication.metadata.title?.takeIf(String::isNotBlank)
+                title = publication.metadata.title?.normalizedOrNull()
                     ?: fallbackTitle(uri),
-                author = publication.metadata.authors.firstOrNull()?.name?.takeIf(String::isNotBlank)
+                author = publication.metadata.authors.firstOrNull()?.name?.normalizedOrNull()
                     ?: "Unknown author",
                 coverUriString = coverUriString,
                 lastOpenedAtMillis = System.currentTimeMillis(),
@@ -155,8 +155,11 @@ internal class AndroidBookLibraryGateway(
 private fun fallbackTitle(uri: Uri): String =
     uri.lastPathSegment
         ?.substringAfterLast('/')
-        ?.takeIf(String::isNotBlank)
+        ?.normalizedOrNull()
         ?: "Untitled book"
+
+private fun String.normalizedOrNull(): String? =
+    trim().takeIf(String::isNotEmpty)
 
 private fun stableId(value: String): String {
     val digest = MessageDigest.getInstance("SHA-256")

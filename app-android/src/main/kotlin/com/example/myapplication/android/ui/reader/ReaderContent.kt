@@ -39,12 +39,13 @@ fun AndroidReaderContent(
     var overlayVisible by remember(androidModel) { mutableStateOf(false) }
     var seekRequestId by remember(androidModel) { mutableStateOf(0) }
     var seekRequest by remember(androidModel) { mutableStateOf<Pair<Int, Float>?>(null) }
+    val readerTitle = model.title.trim().ifEmpty { "EPUB Reader" }
 
     Scaffold(
         modifier = modifier,
         topBar = {
             TopAppBar(
-                title = { Text("EPUB Reader") },
+                title = { Text(readerTitle) },
                 navigationIcon = {
                     TextButton(onClick = component::onBackClicked) {
                         Text("Back")
