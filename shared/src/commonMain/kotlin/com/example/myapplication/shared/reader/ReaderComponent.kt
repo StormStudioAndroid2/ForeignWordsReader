@@ -5,6 +5,7 @@ import com.arkivanov.decompose.value.Value
 interface ReaderComponent {
 
     val model: Value<Model>
+    val search: SearchComponent
 
     fun onBackClicked()
     fun onPreviousClicked()

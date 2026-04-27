@@ -28,7 +28,6 @@ import com.example.myapplication.android.ui.reader.removeCurrentNavigator
 import com.example.myapplication.shared.root.DefaultRootComponent
 import com.example.myapplication.shared.root.RootComponent
 import com.example.myapplication.shared.root.RootComponent.Child
-import org.json.JSONObject
 
 class MainActivity : FragmentActivity() {
 
@@ -89,11 +88,3 @@ private fun AndroidRootContent(
         }
     }
 }
-
-
-fun JSONObject.optProgressValue(name: String): Double? =
-    if (has(name)) {
-        optDouble(name).takeUnless { it.isNaN() }
-    } else {
-        null
-    }

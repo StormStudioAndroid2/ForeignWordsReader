@@ -30,6 +30,7 @@
 		A10000152F42000100000015 /* IosEpubReaderViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000052F42000100000005 /* IosEpubReaderViewController.swift */; };
 		A10000162F42000100000016 /* IosReaderRuntime.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000062F42000100000006 /* IosReaderRuntime.swift */; };
 		A10000172F42000100000017 /* IosBookLibraryGateway.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000072F42000100000007 /* IosBookLibraryGateway.swift */; };
+		A10000182F42000100000018 /* IosReaderSearchGateway.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000082F42000100000008 /* IosReaderSearchGateway.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -68,6 +69,7 @@
 		A10000052F42000100000005 /* IosEpubReaderViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IosEpubReaderViewController.swift; sourceTree = "<group>"; };
 		A10000062F42000100000006 /* IosReaderRuntime.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IosReaderRuntime.swift; sourceTree = "<group>"; };
 		A10000072F42000100000007 /* IosBookLibraryGateway.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IosBookLibraryGateway.swift; sourceTree = "<group>"; };
+		A10000082F42000100000008 /* IosReaderSearchGateway.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IosReaderSearchGateway.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -144,6 +146,7 @@
 				A10000042F42000100000004 /* IosReaderPersistence.swift */,
 				A10000032F42000100000003 /* IosReadiumServices.swift */,
 				A10000072F42000100000007 /* IosBookLibraryGateway.swift */,
+				A10000082F42000100000008 /* IosReaderSearchGateway.swift */,
 			);
 			path = "reader-platform";
 			sourceTree = "<group>";
@@ -272,6 +275,7 @@
 				A10000152F42000100000015 /* IosEpubReaderViewController.swift in Sources */,
 				A10000162F42000100000016 /* IosReaderRuntime.swift in Sources */,
 				A10000172F42000100000017 /* IosBookLibraryGateway.swift in Sources */,
+				A10000182F42000100000018 /* IosReaderSearchGateway.swift in Sources */,
 				B6430CF22A902C7E002F7636 /* MutableValue.swift in Sources */,
 				B6430CF02A902AF3002F7636 /* ObservableValue.swift in Sources */,
 				796CE3BF2AB4EA1500A9F9AD /* SimpleChildStack.swift in Sources */,

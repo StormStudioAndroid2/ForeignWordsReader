@@ -11,6 +11,7 @@ final class IosReaderRuntime {
     private let model: MutableValue<ReaderComponentModel>
     private let state: IosReaderState
     private let readium = IosReadium()
+    let searchGateway = IosReaderSearchGateway()
     private var task: Task<Void, Never>?
     private var securityAccess: SecurityScopedURLAccess?
     private var pendingLocator: PendingReaderLocator?
@@ -54,6 +55,7 @@ final class IosReaderRuntime {
         isClosed = true
         task?.cancel()
         task = nil
+        searchGateway.invalidate()
         persistPendingLocator(force: true)
         securityAccess?.stop()
         securityAccess = nil
@@ -117,6 +119,7 @@ final class IosReaderRuntime {
             guard !Task.isCancelled, !isClosed else { return }
 
             IosReaderPersistence.saveLastEpub(uriString: uriString)
+            searchGateway.update(publication: publication, reader: reader)
             await publish(
                 status: .ready,
                 reader: reader,
@@ -127,6 +130,7 @@ final class IosReaderRuntime {
         } catch is CancellationError {
             return
         } catch {
+            searchGateway.invalidate()
             securityAccess?.stop()
             securityAccess = nil
             await publish(status: .error, message: IosReaderError.message(for: error))

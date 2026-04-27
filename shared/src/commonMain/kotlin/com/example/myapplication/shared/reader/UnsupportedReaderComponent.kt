@@ -10,6 +10,12 @@ class UnsupportedReaderComponent(
     private val onFinished: () -> Unit,
 ) : ReaderComponent, ComponentContext by componentContext {
 
+    override val search: SearchComponent =
+        DefaultSearchComponent(
+            componentContext = componentContext,
+            gateway = EmptyReaderSearchGateway,
+        )
+
     override val model: Value<ReaderComponent.Model> =
         MutableValue(
             ReaderComponent.Model(

@@ -16,12 +16,14 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.Button
+import androidx.compose.material.Divider
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Scaffold
 import androidx.compose.material.Surface
@@ -91,12 +93,11 @@ fun AndroidMainContent(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding)
-                .padding(horizontal = 16.dp),
+                .padding(innerPadding),
         ) {
             if (model.errorMessage != null) {
                 Text(
-                    modifier = Modifier.padding(top = 12.dp),
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
                     text = model.errorMessage.orEmpty(),
                     color = MaterialTheme.colors.error,
                 )
@@ -128,10 +129,16 @@ private fun BookList(
             items = books,
             key = BookItem::id,
         ) { book ->
-            BookRow(
-                book = book,
-                onClick = { onBookClicked(book.uriString) },
-            )
+            Column {
+                BookRow(
+                    book = book,
+                    onClick = { onBookClicked(book.uriString) },
+                )
+                Divider(
+                    modifier = Modifier.padding(horizontal = 20.dp),
+                    color = MaterialTheme.colors.onSurface.copy(alpha = 0.08f),
+                )
+            }
         }
     }
 }
@@ -146,7 +153,8 @@ private fun BookRow(
         modifier = modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(vertical = 10.dp),
+            .heightIn(min = 124.dp)
+            .padding(horizontal = 20.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         BookCover(
