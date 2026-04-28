@@ -21,25 +21,18 @@ struct ReaderView: View {
     }
 
     var body: some View {
-        content
-            .navigationBarTitle(readerTitle, displayMode: .inline)
-            .sheet(
-                isPresented: Binding(
-                    get: { searchModel.isVisible },
-                    set: { isPresented in
-                        if isPresented {
-                            component.search.onOpenRequested()
-                        } else {
-                            component.search.onDismissRequested()
-                        }
-                    }
-                )
-            ) {
-                ReaderSearchSheet(
+        ZStack(alignment: .top) {
+            content
+            if searchModel.isVisible {
+                ReaderSearchOverlay(
                     component: component.search,
                     model: searchModel
                 )
+                .transition(.opacity)
             }
+        }
+        .animation(.easeInOut(duration: 0.2), value: searchModel.isVisible)
+        .navigationBarTitle(readerTitle, displayMode: .inline)
     }
 
     private var readerTitle: String {
@@ -114,16 +107,65 @@ private struct ReaderTopStripe: View {
     let onSearchClicked: () -> Void
 
     var body: some View {
-        HStack {
-            Button("Search", action: onSearchClicked)
-                .buttonStyle(.borderedProminent)
-            Spacer()
+        HStack(spacing: 0) {
+            ReaderChromeAction(
+                title: "Search",
+                systemImage: "magnifyingglass",
+                isEnabled: true,
+                action: onSearchClicked
+            )
+            ReaderChromeAction(
+                title: "Bookmark",
+                systemImage: "bookmark",
+                isEnabled: false,
+                action: {}
+            )
+            ReaderChromeAction(
+                title: "Settings",
+                systemImage: "gearshape",
+                isEnabled: false,
+                action: {}
+            )
+            ReaderChromeAction(
+                title: "Contents",
+                systemImage: "list.bullet",
+                isEnabled: false,
+                action: {}
+            )
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 12)
+        .padding(.horizontal, 8)
         .frame(maxWidth: .infinity)
+        .frame(height: 72)
         .background(Color(.systemBackground).opacity(0.94))
         .shadow(radius: 4, y: 2)
+    }
+}
+
+private struct ReaderChromeAction: View {
+    let title: String
+    let systemImage: String
+    let isEnabled: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 4) {
+                Image(systemName: systemImage)
+                    .font(.system(size: 17, weight: .semibold))
+                Text(title)
+                    .font(.caption2.weight(.semibold))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.8)
+            }
+            .foregroundColor(isEnabled ? .accentColor : .secondary)
+            .frame(maxWidth: .infinity)
+            .frame(height: 56)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .disabled(!isEnabled)
+        .opacity(isEnabled ? 1 : 0.45)
+        .frame(maxWidth: .infinity)
     }
 }
 
@@ -214,87 +256,132 @@ private struct EpubNavigatorContainer: UIViewControllerRepresentable {
     }
 }
 
-private struct ReaderSearchSheet: View {
+private struct ReaderSearchOverlay: View {
     let component: SearchComponent
     let model: SearchComponentModel
 
     var body: some View {
-        VStack(spacing: 12) {
-            HStack(spacing: 8) {
-                TextField(
-                    "Search in book",
-                    text: Binding(
-                        get: { model.query },
-                        set: { component.onQueryChanged(query: $0) }
-                    )
-                )
-                .textFieldStyle(.roundedBorder)
-
-                Button("Search") {
-                    component.onSearchSubmitted()
-                }
-                .buttonStyle(.borderedProminent)
-            }
-
-            HStack {
-                Text(summaryText)
-                    .font(.subheadline)
-                    .foregroundColor(summaryColor)
-                Spacer()
-                if !model.query.isEmpty || !model.results.isEmpty {
-                    Button("Clear") {
-                        component.onClearQueryClicked()
+        GeometryReader { geometry in
+            ZStack(alignment: .top) {
+                Color.black.opacity(0.35)
+                    .ignoresSafeArea()
+                    .onTapGesture {
+                        component.onDismissRequested()
                     }
-                }
-                Button("Close") {
-                    component.onDismissRequested()
-                }
-            }
 
-            switch model.status {
-            case .idle:
-                ReaderSearchEmptyState(message: "Search opens matching passages with context.")
-            case .loading:
-                Spacer()
-                ProgressView()
-                Spacer()
-            case .empty:
-                ReaderSearchEmptyState(message: "No matches found for \"\(model.query)\".")
-            case .error:
-                ReaderSearchEmptyState(message: model.errorMessage ?? "Search failed.")
-            case .results:
-                List {
-                    ForEach(model.results, id: \.id) { item in
-                        ReaderSearchResultRow(
-                            item: item,
-                            isSelected: item.locatorJson == model.selectedLocatorJson
-                        ) {
-                            component.onResultClicked(locatorJson: item.locatorJson)
+                VStack(spacing: 14) {
+                    HStack {
+                        Text("Search in book")
+                            .font(.headline)
+                        Spacer()
+                        Button {
+                            component.onDismissRequested()
+                        } label: {
+                            Image(systemName: "xmark")
+                                .font(.system(size: 17, weight: .semibold))
+                                .foregroundColor(.accentColor)
+                                .frame(width: 44, height: 44)
+                                .contentShape(Rectangle())
                         }
-                        .listRowInsets(EdgeInsets(top: 8, leading: 0, bottom: 8, trailing: 0))
-                        .listRowBackground(Color.clear)
-                        .onAppear {
-                            if item.id == model.results.last?.id, model.canLoadMore, !model.isLoadingMore {
-                                component.onLoadNextPage()
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Close search")
+                    }
+
+                    HStack(spacing: 8) {
+                        TextField(
+                            "Word or phrase",
+                            text: Binding(
+                                get: { model.query },
+                                set: { component.onQueryChanged(query: $0) }
+                            )
+                        )
+                        .textFieldStyle(.plain)
+                        .font(.body)
+                        .padding(.horizontal, 12)
+                        .frame(height: 44)
+                        .background(
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(Color(.secondarySystemBackground))
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8)
+                                .stroke(Color(.separator), lineWidth: 0.5)
+                        )
+
+                        Button("Search") {
+                            component.onSearchSubmitted()
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .font(.body.weight(.semibold))
+                        .frame(height: 44)
+                        .controlSize(.regular)
+                    }
+
+                    HStack {
+                        Text(summaryText)
+                            .font(.subheadline)
+                            .foregroundColor(summaryColor)
+                        Spacer()
+                        if !model.query.isEmpty || !model.results.isEmpty {
+                            Button("Clear") {
+                                component.onClearQueryClicked()
                             }
                         }
                     }
 
-                    if model.isLoadingMore {
-                        HStack {
-                            Spacer()
-                            ProgressView()
-                            Spacer()
+                    switch model.status {
+                    case .idle:
+                        ReaderSearchEmptyState(message: "Search opens matching passages with context.")
+                    case .loading:
+                        Spacer()
+                        ProgressView()
+                        Spacer()
+                    case .empty:
+                        ReaderSearchEmptyState(message: "No matches found for \"\(model.query)\".")
+                    case .error:
+                        ReaderSearchEmptyState(message: model.errorMessage ?? "Search failed.")
+                    case .results:
+                        List {
+                            ForEach(model.results, id: \.id) { item in
+                                ReaderSearchResultRow(
+                                    item: item,
+                                    isSelected: item.locatorJson == model.selectedLocatorJson
+                                ) {
+                                    component.onResultClicked(locatorJson: item.locatorJson)
+                                }
+                                .listRowInsets(EdgeInsets(top: 8, leading: 0, bottom: 8, trailing: 0))
+                                .listRowBackground(Color.clear)
+                                .onAppear {
+                                    if item.id == model.results.last?.id, model.canLoadMore, !model.isLoadingMore {
+                                        component.onLoadNextPage()
+                                    }
+                                }
+                            }
+
+                            if model.isLoadingMore {
+                                HStack {
+                                    Spacer()
+                                    ProgressView()
+                                    Spacer()
+                                }
+                                .listRowBackground(Color.clear)
+                            }
                         }
-                        .listRowBackground(Color.clear)
+                        .listStyle(.plain)
+                    default:
+                        ReaderSearchEmptyState(message: "Search is unavailable.")
                     }
                 }
-                .listStyle(.plain)
-            default:
-                ReaderSearchEmptyState(message: "Search is unavailable.")
+                .padding(16)
+                .frame(maxWidth: .infinity)
+                .frame(height: geometry.size.height * 0.82)
+                .background(Color(.systemBackground))
+                .overlay(alignment: .bottom) {
+                    Divider()
+                }
             }
         }
-        .padding(16)
+        .ignoresSafeArea(edges: .bottom)
     }
 
     private var summaryText: String {

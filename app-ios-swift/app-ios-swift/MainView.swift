@@ -42,9 +42,10 @@ struct MainView: View {
                             BookRow(book: book) {
                                 component.onBookClicked(uriString: book.uriString)
                             }
+                            Divider()
+                                .padding(.horizontal, 20)
                         }
                     }
-                    .padding(.horizontal, 16)
                     .padding(.vertical, 8)
                 }
             }
@@ -105,6 +106,8 @@ private struct BookRow: View {
                 }
                 Spacer(minLength: 0)
             }
+            .frame(minHeight: 124)
+            .padding(.horizontal, 20)
             .padding(.vertical, 10)
             .contentShape(Rectangle())
         }
@@ -130,11 +133,11 @@ private struct BookCover: View {
                     .scaledToFill()
             } else {
                 ZStack {
-                    Color(red: 0.88, green: 0.91, blue: 0.94)
+                    Color(red: 224.0 / 255.0, green: 231.0 / 255.0, blue: 239.0 / 255.0)
                     Text(book.title.initials)
                         .font(.headline)
                         .fontWeight(.semibold)
-                        .foregroundColor(Color(red: 0.15, green: 0.2, blue: 0.22))
+                        .foregroundColor(Color(red: 38.0 / 255.0, green: 50.0 / 255.0, blue: 56.0 / 255.0))
                 }
             }
         }
