@@ -51,6 +51,13 @@ class DefaultMainComponent(
                 )
                 onOpenReader(book.uriString)
             },
+            onProcessingChanged = { book ->
+                mutableModel.value = mutableModel.value.copy(
+                    books = mutableModel.value.books.withBookFirst(book),
+                    isLoading = false,
+                    errorMessage = null,
+                )
+            },
             onError = { message ->
                 mutableModel.value = mutableModel.value.copy(
                     isLoading = false,

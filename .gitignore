@@ -16,6 +16,7 @@ venv
 /manifest.json
 /site
 /dist
+/tmp/
 /mkdocs_material.egg-info
 .vscode
 .kotlin

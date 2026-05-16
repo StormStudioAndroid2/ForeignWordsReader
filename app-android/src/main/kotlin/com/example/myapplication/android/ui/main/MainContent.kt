@@ -23,6 +23,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.Button
+import androidx.compose.material.CircularProgressIndicator
 import androidx.compose.material.Divider
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Scaffold
@@ -45,6 +46,7 @@ import com.arkivanov.decompose.extensions.compose.subscribeAsState
 import com.example.myapplication.android.ui.reader.LoadingReaderState
 import com.example.myapplication.shared.main.BookItem
 import com.example.myapplication.shared.main.MainComponent
+import com.example.myapplication.shared.processing.BookProcessingState
 
 @Composable
 fun AndroidMainContent(
@@ -179,6 +181,53 @@ private fun BookRow(
                 style = MaterialTheme.typography.body2,
                 color = MaterialTheme.colors.onSurface.copy(alpha = 0.68f),
                 maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            BookProcessingLabel(book = book)
+        }
+    }
+}
+
+@Composable
+private fun BookProcessingLabel(book: BookItem) {
+    when (book.processingState) {
+        BookProcessingState.NotStarted -> Unit
+        BookProcessingState.Processing -> {
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                CircularProgressIndicator(
+                    modifier = Modifier
+                        .width(16.dp)
+                        .height(16.dp),
+                    strokeWidth = 2.dp,
+                )
+                Text(
+                    text = "Processing words...",
+                    style = MaterialTheme.typography.caption,
+                    color = MaterialTheme.colors.primary,
+                )
+            }
+        }
+
+        BookProcessingState.Completed -> {
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = "${book.processingTokenCount} tokens processed",
+                style = MaterialTheme.typography.caption,
+                color = MaterialTheme.colors.onSurface.copy(alpha = 0.56f),
+            )
+        }
+
+        BookProcessingState.Failed -> {
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = book.processingErrorMessage ?: "Word processing failed",
+                style = MaterialTheme.typography.caption,
+                color = MaterialTheme.colors.error,
+                maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
         }

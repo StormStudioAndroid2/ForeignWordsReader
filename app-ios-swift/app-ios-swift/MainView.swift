@@ -103,6 +103,7 @@ private struct BookRow: View {
                         .font(.subheadline)
                         .foregroundColor(.secondary)
                         .lineLimit(1)
+                    BookProcessingLabel(book: book)
                 }
                 Spacer(minLength: 0)
             }
@@ -112,6 +113,37 @@ private struct BookRow: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+    }
+}
+
+private struct BookProcessingLabel: View {
+    let book: BookItem
+
+    var body: some View {
+        switch book.processingState {
+        case .processing:
+            HStack(spacing: 8) {
+                ProgressView()
+                    .scaleEffect(0.7)
+                Text("Processing words...")
+                    .font(.caption)
+                    .foregroundColor(.accentColor)
+            }
+            .padding(.top, 2)
+        case .completed:
+            Text("\(book.processingTokenCount) tokens processed")
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .padding(.top, 2)
+        case .failed:
+            Text(book.processingErrorMessage ?? "Word processing failed")
+                .font(.caption)
+                .foregroundColor(.red)
+                .lineLimit(2)
+                .padding(.top, 2)
+        default:
+            EmptyView()
+        }
     }
 }
 

@@ -52,3 +52,4 @@ readium-navigator = { group = "org.readium.kotlin-toolkit", name = "readium-navi
 sqldelight-runtime = { group = "app.cash.sqldelight", name = "runtime", version.ref = "sqldelight" }
 sqldelight-androidDriver = { group = "app.cash.sqldelight", name = "android-driver", version.ref = "sqldelight" }
 sqldelight-nativeDriver = { group = "app.cash.sqldelight", name = "native-driver", version.ref = "sqldelight" }
+androidx-sqlite-framework = { group = "androidx.sqlite", name = "sqlite-framework", version = "2.5.1" }

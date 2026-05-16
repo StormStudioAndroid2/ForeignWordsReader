@@ -1,0 +1,45 @@
+CREATE TABLE book_analysis_metadata (
+  book_id TEXT NOT NULL,
+  language TEXT NOT NULL,
+  nlp_provider TEXT NOT NULL,
+  udpipe_version TEXT NOT NULL,
+  model_id TEXT NOT NULL,
+  model_version TEXT NOT NULL,
+  index_version INTEGER NOT NULL,
+  state TEXT NOT NULL,
+  token_count INTEGER NOT NULL DEFAULT 0,
+  unique_lemma_count INTEGER NOT NULL DEFAULT 0,
+  saved_index_size_bytes INTEGER NOT NULL DEFAULT 0,
+  processed_at_millis INTEGER,
+  error_message TEXT,
+  PRIMARY KEY (book_id, language),
+  FOREIGN KEY (book_id) REFERENCES book(id) ON DELETE CASCADE
+);
+
+CREATE INDEX book_analysis_metadata_current
+ON book_analysis_metadata(book_id, language, nlp_provider, model_version, index_version, state);
+
+CREATE TABLE book_lemma_total (
+  book_id TEXT NOT NULL,
+  language TEXT NOT NULL,
+  lemma TEXT NOT NULL,
+  total_count INTEGER NOT NULL,
+  PRIMARY KEY (book_id, language, lemma),
+  FOREIGN KEY (book_id, language) REFERENCES book_analysis_metadata(book_id, language) ON DELETE CASCADE
+);
+
+CREATE INDEX book_lemma_total_rank
+ON book_lemma_total(book_id, language, total_count DESC, lemma ASC);
+
+CREATE TABLE book_chunk_lemma_count (
+  book_id TEXT NOT NULL,
+  language TEXT NOT NULL,
+  chunk_id INTEGER NOT NULL,
+  lemma TEXT NOT NULL,
+  local_count INTEGER NOT NULL,
+  PRIMARY KEY (book_id, language, chunk_id, lemma),
+  FOREIGN KEY (book_id, language) REFERENCES book_analysis_metadata(book_id, language) ON DELETE CASCADE
+);
+
+CREATE INDEX book_chunk_lemma_count_chunk
+ON book_chunk_lemma_count(book_id, language, chunk_id, local_count DESC, lemma ASC);

@@ -31,6 +31,8 @@
 		A10000162F42000100000016 /* IosReaderRuntime.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000062F42000100000006 /* IosReaderRuntime.swift */; };
 		A10000172F42000100000017 /* IosBookLibraryGateway.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000072F42000100000007 /* IosBookLibraryGateway.swift */; };
 		A10000182F42000100000018 /* IosReaderSearchGateway.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000082F42000100000008 /* IosReaderSearchGateway.swift */; };
+		A20000112F43000100000011 /* english-ewt.udpipe in Resources */ = {isa = PBXBuildFile; fileRef = A20000012F43000100000001 /* english-ewt.udpipe */; };
+		A30000112F44000100000011 /* global-frequency.sqlite in Resources */ = {isa = PBXBuildFile; fileRef = A30000012F44000100000001 /* global-frequency.sqlite */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -70,6 +72,8 @@
 		A10000062F42000100000006 /* IosReaderRuntime.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IosReaderRuntime.swift; sourceTree = "<group>"; };
 		A10000072F42000100000007 /* IosBookLibraryGateway.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IosBookLibraryGateway.swift; sourceTree = "<group>"; };
 		A10000082F42000100000008 /* IosReaderSearchGateway.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IosReaderSearchGateway.swift; sourceTree = "<group>"; };
+		A20000012F43000100000001 /* english-ewt.udpipe */ = {isa = PBXFileReference; lastKnownFileType = file; path = Resources/udpipe/english-ewt.udpipe; sourceTree = "<group>"; };
+		A30000012F44000100000001 /* global-frequency.sqlite */ = {isa = PBXFileReference; lastKnownFileType = file; path = Resources/frequency/global-frequency.sqlite; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -123,6 +127,8 @@
 				796CE3BA2AB4E55100A9F9AD /* WelcomeView.swift */,
 				7555FF8C242A565B00829871 /* Info.plist */,
 				2152FB032600AC8F00CF470E /* iOSApp.swift */,
+				A20000012F43000100000001 /* english-ewt.udpipe */,
+				A30000012F44000100000001 /* global-frequency.sqlite */,
 				058557D7273AAEEB004C7B11 /* Preview Content */,
 			);
 			path = "app-ios-swift";
@@ -233,6 +239,8 @@
 			files = (
 				058557D9273AAEEB004C7B11 /* Preview Assets.xcassets in Resources */,
 				058557BB273AAA24004C7B11 /* Assets.xcassets in Resources */,
+				A20000112F43000100000011 /* english-ewt.udpipe in Resources */,
+				A30000112F44000100000011 /* global-frequency.sqlite in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

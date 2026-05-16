@@ -7,15 +7,108 @@ CREATE TABLE book (
   last_opened_at_millis INTEGER NOT NULL
 );
 
+CREATE TABLE book_analysis_metadata (
+  book_id TEXT NOT NULL,
+  language TEXT NOT NULL,
+  nlp_provider TEXT NOT NULL,
+  udpipe_version TEXT NOT NULL,
+  model_id TEXT NOT NULL,
+  model_version TEXT NOT NULL,
+  index_version INTEGER NOT NULL,
+  pipeline_fingerprint TEXT NOT NULL DEFAULT 'udpipe-analysis@1|build-lemma-index@1|persist-book-index@1',
+  state TEXT NOT NULL,
+  token_count INTEGER NOT NULL DEFAULT 0,
+  unique_lemma_count INTEGER NOT NULL DEFAULT 0,
+  saved_index_size_bytes INTEGER NOT NULL DEFAULT 0,
+  processed_at_millis INTEGER,
+  error_message TEXT,
+  PRIMARY KEY (book_id, language),
+  FOREIGN KEY (book_id) REFERENCES book(id) ON DELETE CASCADE
+);
+
+CREATE INDEX book_analysis_metadata_current
+ON book_analysis_metadata(book_id, language, nlp_provider, model_version, index_version, pipeline_fingerprint, state);
+
+CREATE TABLE book_lemma_total (
+  book_id TEXT NOT NULL,
+  language TEXT NOT NULL,
+  lemma TEXT NOT NULL,
+  total_count INTEGER NOT NULL,
+  global_frequency_zipf REAL,
+  tf_idf_score REAL NOT NULL,
+  PRIMARY KEY (book_id, language, lemma),
+  FOREIGN KEY (book_id, language) REFERENCES book_analysis_metadata(book_id, language) ON DELETE CASCADE
+);
+
+CREATE INDEX book_lemma_total_rank
+ON book_lemma_total(book_id, language, tf_idf_score DESC, total_count DESC, lemma ASC);
+
+CREATE TABLE book_chunk_lemma_count (
+  book_id TEXT NOT NULL,
+  language TEXT NOT NULL,
+  chunk_id INTEGER NOT NULL,
+  lemma TEXT NOT NULL,
+  local_count INTEGER NOT NULL,
+  PRIMARY KEY (book_id, language, chunk_id, lemma),
+  FOREIGN KEY (book_id, language) REFERENCES book_analysis_metadata(book_id, language) ON DELETE CASCADE
+);
+
+CREATE INDEX book_chunk_lemma_count_chunk
+ON book_chunk_lemma_count(book_id, language, chunk_id, local_count DESC, lemma ASC);
+
 selectRecentBooks:
-SELECT *
+SELECT
+  book.id,
+  book.uri_string,
+  book.title,
+  book.author,
+  book.cover_uri_string,
+  book.last_opened_at_millis,
+  book_analysis_metadata.language,
+  book_analysis_metadata.nlp_provider,
+  book_analysis_metadata.udpipe_version,
+  book_analysis_metadata.model_id,
+  book_analysis_metadata.model_version,
+  book_analysis_metadata.index_version,
+  book_analysis_metadata.pipeline_fingerprint,
+  book_analysis_metadata.state,
+  book_analysis_metadata.token_count,
+  book_analysis_metadata.unique_lemma_count,
+  book_analysis_metadata.saved_index_size_bytes,
+  book_analysis_metadata.processed_at_millis,
+  book_analysis_metadata.error_message
 FROM book
+LEFT JOIN book_analysis_metadata
+  ON book_analysis_metadata.book_id = book.id
+  AND book_analysis_metadata.language = ?
 ORDER BY last_opened_at_millis DESC;
 
 selectByUri:
-SELECT *
+SELECT
+  book.id,
+  book.uri_string,
+  book.title,
+  book.author,
+  book.cover_uri_string,
+  book.last_opened_at_millis,
+  book_analysis_metadata.language,
+  book_analysis_metadata.nlp_provider,
+  book_analysis_metadata.udpipe_version,
+  book_analysis_metadata.model_id,
+  book_analysis_metadata.model_version,
+  book_analysis_metadata.index_version,
+  book_analysis_metadata.pipeline_fingerprint,
+  book_analysis_metadata.state,
+  book_analysis_metadata.token_count,
+  book_analysis_metadata.unique_lemma_count,
+  book_analysis_metadata.saved_index_size_bytes,
+  book_analysis_metadata.processed_at_millis,
+  book_analysis_metadata.error_message
 FROM book
-WHERE uri_string = ?;
+LEFT JOIN book_analysis_metadata
+  ON book_analysis_metadata.book_id = book.id
+  AND book_analysis_metadata.language = ?
+WHERE book.uri_string = ?;
 
 countBooks:
 SELECT COUNT(*)
@@ -36,3 +129,85 @@ updateLastOpened:
 UPDATE book
 SET last_opened_at_millis = ?
 WHERE uri_string = ?;
+
+selectProcessingStatus:
+SELECT *
+FROM book_analysis_metadata
+WHERE book_id = ?
+  AND language = ?;
+
+selectCurrentCompletedIndex:
+SELECT *
+FROM book_analysis_metadata
+WHERE book_id = ?
+  AND language = ?
+  AND nlp_provider = ?
+  AND model_version = ?
+  AND index_version = ?
+  AND pipeline_fingerprint = ?
+  AND state = 'Completed';
+
+upsertProcessingStatus:
+INSERT OR REPLACE INTO book_analysis_metadata(
+  book_id,
+  language,
+  nlp_provider,
+  udpipe_version,
+  model_id,
+  model_version,
+  index_version,
+  pipeline_fingerprint,
+  state,
+  token_count,
+  unique_lemma_count,
+  saved_index_size_bytes,
+  processed_at_millis,
+  error_message
+)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+deleteLemmaTotals:
+DELETE FROM book_lemma_total
+WHERE book_id = ?
+  AND language = ?;
+
+deleteChunkLemmaCounts:
+DELETE FROM book_chunk_lemma_count
+WHERE book_id = ?
+  AND language = ?;
+
+insertLemmaTotal:
+INSERT INTO book_lemma_total(
+  book_id,
+  language,
+  lemma,
+  total_count,
+  global_frequency_zipf,
+  tf_idf_score
+)
+VALUES (?, ?, ?, ?, ?, ?);
+
+insertChunkLemmaCount:
+INSERT INTO book_chunk_lemma_count(
+  book_id,
+  language,
+  chunk_id,
+  lemma,
+  local_count
+)
+VALUES (?, ?, ?, ?, ?);
+
+selectLemmaTotals:
+SELECT *
+FROM book_lemma_total
+WHERE book_id = ?
+  AND language = ?
+ORDER BY tf_idf_score DESC, total_count DESC, lemma ASC;
+
+selectChunkLemmaCounts:
+SELECT *
+FROM book_chunk_lemma_count
+WHERE book_id = ?
+  AND language = ?
+  AND chunk_id = ?
+ORDER BY local_count DESC, lemma ASC;

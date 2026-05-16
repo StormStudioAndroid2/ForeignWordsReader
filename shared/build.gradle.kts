@@ -23,11 +23,32 @@ kotlin {
         }
     }
 
-    listOf(
+    val iosTargets = listOf(
         iosX64(),
         iosArm64(),
         iosSimulatorArm64(),
     )
+
+    iosTargets.forEach { target ->
+        target.compilations.getByName("main") {
+            cinterops {
+                val udpipeAdapter by creating {
+                    definitionFile.set(project.file("src/nativeInterop/cinterop/udpipeAdapter.def"))
+                    includeDirs(rootProject.file("native/udpipe/adapter"))
+                }
+            }
+        }
+
+        target.binaries.all {
+            linkerOpts(
+                "-L${rootProject.file("native/udpipe/build/ios/${target.name}")}",
+                "-lforeignwords_udpipe",
+                "-lc++",
+            )
+        }
+    }
+
+    iosTargets
         .takeIf { "XCODE_VERSION_MAJOR" in System.getenv().keys } // Export the framework only for Xcode builds
         ?.forEach {
             // This `shared` framework is exported for app-ios-swift
@@ -50,6 +71,7 @@ kotlin {
         val androidMain by getting {
             dependencies {
                 implementation(libs.sqldelight.androidDriver)
+                implementation(libs.androidx.sqlite.framework)
             }
         }
         val iosMain by getting {
@@ -79,10 +101,53 @@ android {
 
     defaultConfig {
         minSdk = libs.versions.android.minSdk.get().toInt()
+        ndk {
+            abiFilters += listOf("arm64-v8a", "x86_64")
+        }
+        externalNativeBuild {
+            cmake {
+                cppFlags += listOf("-std=c++11", "-fexceptions", "-frtti")
+            }
+        }
+    }
+
+    externalNativeBuild {
+        cmake {
+            path = rootProject.file("native/udpipe/CMakeLists.txt")
+        }
     }
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
+    }
+}
+
+val buildUdpipeIos by tasks.registering(Exec::class) {
+    commandLine(rootProject.file("native/udpipe/build-ios.sh").absolutePath)
+    inputs.files(
+        fileTree(rootProject.file("native/udpipe/upstream/src")) {
+            include("**/*.cpp", "**/*.h")
+            exclude("rest_server/**", "udpipe.cpp")
+        },
+        fileTree(rootProject.file("native/udpipe/adapter")) {
+            include("*.cpp", "*.h")
+            exclude("udpipe_jni.cpp")
+        },
+    )
+    outputs.dirs(
+        rootProject.file("native/udpipe/build/ios/iosArm64"),
+        rootProject.file("native/udpipe/build/ios/iosX64"),
+        rootProject.file("native/udpipe/build/ios/iosSimulatorArm64"),
+    )
+}
+
+tasks.configureEach {
+    if (
+        name.contains("CInteropUdpipeAdapter", ignoreCase = true) ||
+        (name.contains("link", ignoreCase = true) && name.contains("Ios")) ||
+        name.contains("assembleDebugAppleFrameworkForXcode")
+    ) {
+        dependsOn(buildUdpipeIos)
     }
 }
