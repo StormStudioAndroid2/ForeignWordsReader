@@ -58,6 +58,16 @@ class BookPreprocessingPipelineTest {
         )
 
         assertEquals(DefaultBookPreprocessingPipelineFingerprint, pipeline.fingerprint)
+        assertEquals(
+            listOf(
+                "udpipe-analysis",
+                "build-lemma-candidates",
+                "filter-lemma-candidates",
+                "score-lemma-index",
+                "persist-book-index",
+            ),
+            pipeline.stages.map { it.stageId },
+        )
     }
 }
 
@@ -79,8 +89,8 @@ class BookPreprocessingStageTest {
     }
 
     @Test
-    fun buildLemmaIndexStageBuildsIndexAndTimestamp() {
-        val stage = BuildLemmaIndexStage(
+    fun buildLemmaCandidatesStageBuildsCandidatesAndTimestamp() {
+        val stage = BuildLemmaCandidatesStage(
             indexBuilder = BookIndexBuilder(),
             clockMillis = { 2_000L },
         )
@@ -99,8 +109,83 @@ class BookPreprocessingStageTest {
         )
 
         assertEquals(2_000L, result.processedAtMillis)
-        assertEquals(2L, result.index?.metadata?.tokenCount)
+        assertEquals(2L, result.lemmaCandidates?.metadata?.tokenCount)
+        assertEquals(1, result.lemmaCandidates?.lemmaCandidates?.size)
+        assertEquals(2L, result.lemmaCandidates?.lemmaCandidates?.first()?.totalCount)
+    }
+
+    @Test
+    fun filterLemmaCandidatesStageRequiresCandidateInput() {
+        val stage = FilterLemmaCandidatesStage(indexBuilder = BookIndexBuilder())
+
+        assertFailsWith<IllegalStateException> {
+            stage.process(testContext(lemmaCandidates = null))
+        }
+    }
+
+    @Test
+    fun filterLemmaCandidatesStageWritesFilteredOutputAndPreservesContext() {
+        val stage = FilterLemmaCandidatesStage(indexBuilder = BookIndexBuilder())
+        val analysis = TextAnalysisResult.Success(
+            metadata = testMetadata(),
+            tokens = listOf(testToken(lemma = "book")),
+        )
+        val index = BookIndexBuilder().build(
+            bookId = TestBook.id,
+            metadata = testMetadata(),
+            tokens = List(5) { testToken(lemma = "book") },
+            processedAtMillis = 3_000L,
+        )
+        val candidateIndex = testCandidateIndex(
+            candidates = listOf(
+                testCandidate(lemma = "zebra", dominantUpos = "NOUN", totalCount = 2L, zipf = 4.0),
+                testCandidate(lemma = "the", dominantUpos = "DET", totalCount = 100L, zipf = 7.5),
+                testCandidate(lemma = "alpha", dominantUpos = "ADJ", totalCount = 1L, zipf = 3.0),
+            ),
+            chunkLemmaCounts = listOf(
+                BookChunkLemmaCount(bookId = TestBook.id, chunkId = 0L, lemma = "the", localCount = 100L),
+                BookChunkLemmaCount(bookId = TestBook.id, chunkId = 0L, lemma = "zebra", localCount = 2L),
+                BookChunkLemmaCount(bookId = TestBook.id, chunkId = 1L, lemma = "alpha", localCount = 1L),
+            ),
+        )
+
+        val result = stage.process(
+            testContext(
+                analysis = analysis,
+                processedAtMillis = 3_000L,
+                lemmaCandidates = candidateIndex,
+                index = index,
+            ),
+        )
+
+        assertEquals(analysis, result.analysis)
+        assertEquals(3_000L, result.processedAtMillis)
+        assertEquals(candidateIndex, result.lemmaCandidates)
+        assertEquals(index, result.index)
+        assertEquals(candidateIndex.metadata, result.filteredLemmaCandidates?.metadata)
+        assertEquals(listOf("zebra", "alpha"), result.filteredLemmaCandidates?.lemmaCandidates?.map { it.lemma })
+        assertEquals(listOf("zebra", "alpha"), result.filteredLemmaCandidates?.chunkLemmaCounts?.map { it.lemma })
+    }
+
+    @Test
+    fun scoreLemmaIndexStageBuildsIndexFromFilteredCandidates() {
+        val stage = ScoreLemmaIndexStage(indexBuilder = BookIndexBuilder())
+
+        val result = stage.process(
+            testContext(
+                filteredLemmaCandidates = testFilteredCandidates(
+                    candidates = listOf(testCandidate(lemma = "book", dominantUpos = "NOUN", totalCount = 2L, zipf = 4.0)),
+                    chunkLemmaCounts = listOf(
+                        BookChunkLemmaCount(bookId = TestBook.id, chunkId = 0L, lemma = "book", localCount = 2L),
+                    ),
+                ),
+            ),
+        )
+
         assertEquals(1L, result.index?.metadata?.uniqueLemmaCount)
+        assertEquals(3_000L, result.index?.metadata?.processedAtMillis)
+        assertEquals("book", result.index?.lemmaCounts?.single()?.lemma)
+        assertEquals(4.0, result.index?.lemmaCounts?.single()?.globalFrequencyZipf)
     }
 
     @Test
@@ -109,7 +194,7 @@ class BookPreprocessingStageTest {
         val index = BookIndexBuilder().build(
             bookId = TestBook.id,
             metadata = testMetadata(),
-            tokens = listOf(testToken(lemma = "book")),
+            tokens = List(5) { testToken(lemma = "book") },
             processedAtMillis = 3_000L,
         )
         val stage = PersistBookIndexStage(store = store)
@@ -160,6 +245,8 @@ internal fun testContext(
     pipelineFingerprint: String = DefaultBookPreprocessingPipelineFingerprint,
     analysis: TextAnalysisResult.Success? = null,
     processedAtMillis: Long? = null,
+    lemmaCandidates: BookLemmaCandidateIndex? = null,
+    filteredLemmaCandidates: FilteredBookLemmaCandidates? = null,
     index: BookIndex? = null,
 ): BookPreprocessingContext =
     BookPreprocessingContext(
@@ -170,6 +257,8 @@ internal fun testContext(
         startedAtMillis = 1_000L,
         processedAtMillis = processedAtMillis,
         analysis = analysis,
+        lemmaCandidates = lemmaCandidates,
+        filteredLemmaCandidates = filteredLemmaCandidates,
         index = index,
     )
 
@@ -195,6 +284,56 @@ internal fun testToken(
         lemma = lemma,
         upos = upos,
         tokenType = tokenType,
+    )
+
+internal fun testCandidate(
+    lemma: String,
+    dominantUpos: String,
+    totalCount: Long,
+    zipf: Double? = null,
+    propnRatio: Double = 0.0,
+): BookLemmaCandidate =
+    BookLemmaCandidate(
+        bookId = TestBook.id,
+        lemma = lemma,
+        totalCount = totalCount,
+        globalFrequencyZipf = zipf,
+        uposCounts = mapOf(dominantUpos to totalCount),
+        dominantUpos = dominantUpos,
+        propnRatio = propnRatio,
+    )
+
+internal fun testCandidateIndex(
+    candidates: List<BookLemmaCandidate>,
+    chunkLemmaCounts: List<BookChunkLemmaCount> = emptyList(),
+): BookLemmaCandidateIndex =
+    BookLemmaCandidateIndex(
+        metadata = testCandidateMetadata(),
+        lemmaCandidates = candidates,
+        chunkLemmaCounts = chunkLemmaCounts,
+    )
+
+internal fun testFilteredCandidates(
+    candidates: List<BookLemmaCandidate>,
+    chunkLemmaCounts: List<BookChunkLemmaCount> = emptyList(),
+): FilteredBookLemmaCandidates =
+    FilteredBookLemmaCandidates(
+        metadata = testCandidateMetadata(),
+        lemmaCandidates = candidates,
+        chunkLemmaCounts = chunkLemmaCounts,
+    )
+
+private fun testCandidateMetadata(): BookLemmaCandidateMetadata =
+    BookLemmaCandidateMetadata(
+        bookId = TestBook.id,
+        language = DefaultAnalysisLanguage,
+        nlpProvider = DefaultAnalysisProvider,
+        udpipeVersion = "1.3.1",
+        modelId = DefaultAnalysisModelId,
+        modelVersion = DefaultAnalysisModelVersion,
+        indexVersion = DefaultAnalysisIndexVersion,
+        tokenCount = 2L,
+        processedAtMillis = 3_000L,
     )
 
 internal class FakeModelRepository(

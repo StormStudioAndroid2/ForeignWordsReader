@@ -76,8 +76,10 @@ Files to look:
 The default shared pipeline is:
 
 1. `UdpipeAnalysisStage`
-2. `BuildLemmaIndexStage`
-3. `PersistBookIndexStage`
+2. `BuildLemmaCandidatesStage`
+3. `FilterLemmaCandidatesStage`
+4. `ScoreLemmaIndexStage`
+5. `PersistBookIndexStage`
 
 Every stage has a stable lowercase `stageId` and positive `version`. The ordered
 `stageId@version` values form the pipeline fingerprint stored in
@@ -119,18 +121,37 @@ Files to look:
 - `shared/src/commonMain/kotlin/com/example/myapplication/shared/processing/BookProcessingModels.kt`
 - `shared/src/commonTest/kotlin/com/example/myapplication/shared/processing/ConlluParserTest.kt`
 
-## 8. Lemma index is built
+## 8. Lemma candidates are built, filtered, and scored
 
-`BuildLemmaIndexStage` calls `BookIndexBuilder`, which filters to countable word
-tokens, normalizes lemma keys, and builds two indexes:
+`BuildLemmaCandidatesStage` calls `BookIndexBuilder`, which filters to countable
+word tokens, normalizes lemma keys, keeps chunk ids based on all countable
+word-like tokens, and builds candidate statistics:
+
+- Lemma totals and UPOS counts.
+- Dominant UPOS and `PROPN` ratio per lemma.
+- Chunk-level candidate counts with chunks of 800 word-like tokens.
+- Bundled global Zipf frequency, when available.
+
+`FilterLemmaCandidatesStage` rejects candidate lemmas before TF-IDF scoring when:
+
+- Dominant UPOS is not `NOUN`, `VERB`, `ADJ`, or `ADV`.
+- The lemma is a UDPipe contraction fragment: `ca`, `wo`, `n't`, `'s`, `'re`,
+  `'ve`, `'ll`, `'d`, or `'m`.
+- The lemma contains digits.
+- The lemma length after apostrophe normalization is less than 3.
+- `PROPN_count / total_count >= 0.4`.
+- After apostrophe normalization and stripping apostrophes for validation, any
+  remaining character is non-letter.
+- Global Zipf frequency is missing and `total_count < 5`.
+
+`ScoreLemmaIndexStage` computes the TF-IDF-like rarity score only for accepted
+lemmas and builds the two persisted indexes:
 
 - Book-level lemma totals in `book_lemma_total`.
 - Chunk-level lemma counts in `book_chunk_lemma_count`, with chunks of 800
-  word-like tokens.
+  word-like tokens, but only for accepted lemmas.
 
-It also looks up bundled global Zipf frequencies and computes a TF-IDF-like
-rarity score. Lemmas are ranked by `tfIdfScore`, then `totalCount`, then
-alphabetically.
+Lemmas are ranked by `tfIdfScore`, then `totalCount`, then alphabetically.
 
 Files to look:
 

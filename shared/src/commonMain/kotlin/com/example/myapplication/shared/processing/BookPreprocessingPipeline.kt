@@ -17,6 +17,8 @@ data class BookPreprocessingContext(
     val startedAtMillis: Long,
     val processedAtMillis: Long? = null,
     val analysis: TextAnalysisResult.Success? = null,
+    val lemmaCandidates: BookLemmaCandidateIndex? = null,
+    val filteredLemmaCandidates: FilteredBookLemmaCandidates? = null,
     val index: BookIndex? = null,
     val status: BookProcessingStatus? = null,
 )
@@ -61,10 +63,12 @@ class BookPreprocessingPipeline(
                         modelRepository = modelRepository,
                         analysisProvider = analysisProvider,
                     ),
-                    BuildLemmaIndexStage(
+                    BuildLemmaCandidatesStage(
                         indexBuilder = indexBuilder,
                         clockMillis = clockMillis,
                     ),
+                    FilterLemmaCandidatesStage(indexBuilder = indexBuilder),
+                    ScoreLemmaIndexStage(indexBuilder = indexBuilder),
                     PersistBookIndexStage(store = store),
                 ),
             )
@@ -106,25 +110,49 @@ class UdpipeAnalysisStage(
     }
 }
 
-class BuildLemmaIndexStage(
+class BuildLemmaCandidatesStage(
     private val indexBuilder: BookIndexBuilder,
     private val clockMillis: () -> Long,
 ) : BookPreprocessingStage {
-    override val stageId: String = "build-lemma-index"
+    override val stageId: String = "build-lemma-candidates"
     override val version: Long = 1L
 
     override fun process(context: BookPreprocessingContext): BookPreprocessingContext {
-        val analysis = context.analysis ?: error("Text analysis must complete before building the lemma index.")
+        val analysis = context.analysis ?: error("Text analysis must complete before building lemma candidates.")
         val processedAtMillis = clockMillis()
         return context.copy(
             processedAtMillis = processedAtMillis,
-            index = indexBuilder.build(
+            lemmaCandidates = indexBuilder.buildCandidates(
                 bookId = context.book.id,
                 metadata = analysis.metadata,
                 tokens = analysis.tokens,
                 processedAtMillis = processedAtMillis,
             ),
         )
+    }
+}
+
+class FilterLemmaCandidatesStage(
+    private val indexBuilder: BookIndexBuilder,
+) : BookPreprocessingStage {
+    override val stageId: String = "filter-lemma-candidates"
+    override val version: Long = 1L
+
+    override fun process(context: BookPreprocessingContext): BookPreprocessingContext {
+        val candidates = context.lemmaCandidates ?: error("Lemma candidates must be built before filtering.")
+        return context.copy(filteredLemmaCandidates = indexBuilder.filterCandidates(candidates))
+    }
+}
+
+class ScoreLemmaIndexStage(
+    private val indexBuilder: BookIndexBuilder,
+) : BookPreprocessingStage {
+    override val stageId: String = "score-lemma-index"
+    override val version: Long = 1L
+
+    override fun process(context: BookPreprocessingContext): BookPreprocessingContext {
+        val candidates = context.filteredLemmaCandidates ?: error("Lemma candidates must be filtered before scoring.")
+        return context.copy(index = indexBuilder.score(candidates))
     }
 }
 

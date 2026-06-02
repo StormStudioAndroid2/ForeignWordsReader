@@ -164,19 +164,28 @@ class IosTextAnalysisProvider(
 class IosBookProcessingRunner(
     private val store: BookLibraryStore,
 ) {
-    fun process(book: BookItem, sections: List<TextSection>): BookProcessingStatus {
-        val modelRepository = IosModelRepository()
-        return BookAnalysisProcessor(
-            store = store,
-            modelRepository = modelRepository,
-            analysisProvider = IosTextAnalysisProvider(modelRepository = modelRepository),
-            clockMillis = ::currentTimeMillis,
-            globalFrequencyRepository = IosGlobalFrequencyRepositoryFactory().create(),
-        ).processBook(
-            book = book,
-            sections = sections,
-        )
-    }
+    fun process(book: BookItem, sections: List<TextSection>): BookProcessingStatus =
+        runCatching {
+            val modelRepository = IosModelRepository()
+            BookAnalysisProcessor(
+                store = store,
+                modelRepository = modelRepository,
+                analysisProvider = IosTextAnalysisProvider(modelRepository = modelRepository),
+                clockMillis = ::currentTimeMillis,
+                globalFrequencyRepository = IosGlobalFrequencyRepositoryFactory().create(),
+            ).processBook(
+                book = book,
+                sections = sections,
+            )
+        }.getOrElse { error ->
+            BookProcessingStatus(
+                bookId = book.id,
+                state = BookProcessingState.Failed,
+                errorMessage = error.message ?: "Could not process this book.",
+            ).also { status ->
+                runCatching { store.upsertProcessingStatus(status) }
+            }
+        }
 }
 
 @OptIn(ExperimentalForeignApi::class)

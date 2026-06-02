@@ -15,7 +15,7 @@ CREATE TABLE book_analysis_metadata (
   model_id TEXT NOT NULL,
   model_version TEXT NOT NULL,
   index_version INTEGER NOT NULL,
-  pipeline_fingerprint TEXT NOT NULL DEFAULT 'udpipe-analysis@1|build-lemma-index@1|persist-book-index@1',
+  pipeline_fingerprint TEXT NOT NULL DEFAULT 'udpipe-analysis@1|build-lemma-candidates@1|filter-lemma-candidates@1|score-lemma-index@1|persist-book-index@1',
   state TEXT NOT NULL,
   token_count INTEGER NOT NULL DEFAULT 0,
   unique_lemma_count INTEGER NOT NULL DEFAULT 0,

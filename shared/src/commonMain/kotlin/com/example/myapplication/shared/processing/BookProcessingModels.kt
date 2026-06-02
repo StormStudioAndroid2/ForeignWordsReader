@@ -7,7 +7,7 @@ const val DefaultAnalysisModelVersion: String = "ud-2.5-191206"
 const val DefaultAnalysisIndexVersion: Long = 3L
 const val DefaultBookIndexChunkSize: Int = 800
 const val DefaultBookPreprocessingPipelineFingerprint: String =
-    "udpipe-analysis@1|build-lemma-index@1|persist-book-index@1"
+    "udpipe-analysis@1|build-lemma-candidates@1|filter-lemma-candidates@1|score-lemma-index@1|persist-book-index@1"
 
 enum class BookProcessingState {
     NotStarted,
@@ -116,6 +116,40 @@ data class BookIndexMetadata(
     val uniqueLemmaCount: Long,
     val savedIndexSizeBytes: Long = 0L,
     val processedAtMillis: Long? = null,
+)
+
+data class BookLemmaCandidateMetadata(
+    val bookId: String,
+    val language: String,
+    val nlpProvider: String,
+    val udpipeVersion: String,
+    val modelId: String,
+    val modelVersion: String,
+    val indexVersion: Long,
+    val tokenCount: Long,
+    val processedAtMillis: Long? = null,
+)
+
+data class BookLemmaCandidate(
+    val bookId: String,
+    val lemma: String,
+    val totalCount: Long,
+    val globalFrequencyZipf: Double?,
+    val uposCounts: Map<String, Long>,
+    val dominantUpos: String,
+    val propnRatio: Double,
+)
+
+data class BookLemmaCandidateIndex(
+    val metadata: BookLemmaCandidateMetadata,
+    val lemmaCandidates: List<BookLemmaCandidate>,
+    val chunkLemmaCounts: List<BookChunkLemmaCount>,
+)
+
+data class FilteredBookLemmaCandidates(
+    val metadata: BookLemmaCandidateMetadata,
+    val lemmaCandidates: List<BookLemmaCandidate>,
+    val chunkLemmaCounts: List<BookChunkLemmaCount>,
 )
 
 data class BookLemmaCount(

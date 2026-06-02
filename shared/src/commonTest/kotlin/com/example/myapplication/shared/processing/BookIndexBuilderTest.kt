@@ -39,15 +39,41 @@ class BookIndexBuilderTest {
         val index = BookIndexBuilder().build(
             bookId = "book-1",
             metadata = metadata,
-            tokens = listOf(
-                token(lemma = "child", upos = "NOUN"),
-                token(lemma = ".", upos = "PUNCT", tokenType = TokenType.Punctuation),
-                token(lemma = "$", upos = "SYM", tokenType = TokenType.Symbol),
-            ),
+            tokens = List(5) { token(lemma = "child", upos = "NOUN") } +
+                listOf(
+                    token(lemma = ".", upos = "PUNCT", tokenType = TokenType.Punctuation),
+                    token(lemma = "$", upos = "SYM", tokenType = TokenType.Symbol),
+                ),
         )
 
         assertEquals(listOf("child"), index.lemmaCounts.map { it.lemma })
+        assertEquals(5, index.lemmaCounts.first { it.lemma == "child" }.totalCount)
         assertFalse(index.chunkLemmaCounts.any { it.lemma == "." || it.lemma == "$" })
+    }
+
+    @Test
+    fun buildsLemmaCandidatesBeforeFilteringAndScoring() {
+        val frequencyRepository = FakeGlobalFrequencyRepository(mapOf("read" to 3.5))
+        val candidateIndex = BookIndexBuilder(globalFrequencyRepository = frequencyRepository).buildCandidates(
+            bookId = "book-1",
+            metadata = metadata,
+            tokens = listOf(
+                token(lemma = "Read", upos = "VERB"),
+                token(lemma = "read", upos = "NOUN"),
+                token(lemma = "read", upos = "VERB"),
+                token(lemma = "paris", upos = "PROPN"),
+            ),
+            processedAtMillis = 2_000L,
+        )
+
+        val read = candidateIndex.lemmaCandidates.first { it.lemma == "read" }
+        assertEquals(3L, read.totalCount)
+        assertEquals("VERB", read.dominantUpos)
+        assertEquals(mapOf("VERB" to 2L, "NOUN" to 1L), read.uposCounts)
+        assertEquals(0.0, read.propnRatio)
+        assertEquals(3.5, read.globalFrequencyZipf)
+        assertEquals(4L, candidateIndex.metadata.tokenCount)
+        assertEquals(2_000L, candidateIndex.metadata.processedAtMillis)
     }
 
     @Test
@@ -76,17 +102,16 @@ class BookIndexBuilderTest {
             tokens = tokens,
         )
 
-        assertEquals(80, index.lemmaCounts.first { it.lemma == "the" }.totalCount)
-        assertEquals(100, index.lemmaCounts.first { it.lemma == "and" }.totalCount)
+        assertFalse(index.lemmaCounts.any { it.lemma == "the" || it.lemma == "and" })
         assertEquals(listOf("harpoon", "whale"), index.lemmaCounts.take(2).map { it.lemma })
         assertEquals(0.8, index.lemmaCounts.first { it.lemma == "harpoon" }.globalFrequencyZipf)
-        assertTrue(index.lemmaCounts.first { it.lemma == "whale" }.tfIdfScore > index.lemmaCounts.first { it.lemma == "and" }.tfIdfScore)
+        assertTrue(index.lemmaCounts.first { it.lemma == "harpoon" }.tfIdfScore > index.lemmaCounts.first { it.lemma == "thing" }.tfIdfScore)
     }
 
     @Test
     fun benchmarkSeveralThousandWordLikeTokens() {
         val tokens = List(5_000) { index ->
-            token(lemma = "lemma-${index % 250}")
+            token(lemma = alphaLemma(index % 250))
         }
 
         lateinit var index: BookIndex
@@ -120,6 +145,12 @@ class BookIndexBuilderTest {
             tokenType = tokenType,
         )
 
+    private fun alphaLemma(index: Int): String {
+        val first = 'a' + (index / 26)
+        val second = 'a' + (index % 26)
+        return "lemma$first$second"
+    }
+
     private class FakeGlobalFrequencyRepository(
         private val frequencies: Map<String, Double>,
     ) : GlobalFrequencyRepository {
@@ -127,6 +158,6 @@ class BookIndexBuilderTest {
             language: String,
             lemmas: Set<String>,
         ): Map<String, Double> =
-            lemmas.associateWith { lemma -> frequencies.getValue(lemma) }
+            lemmas.mapNotNull { lemma -> frequencies[lemma]?.let { zipf -> lemma to zipf } }.toMap()
     }
 }

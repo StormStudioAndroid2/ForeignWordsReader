@@ -5,16 +5,12 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
-import re
 import sqlite3
 from pathlib import Path
 
-from wordfreq import top_n_list, zipf_frequency
 
-
-DATABASE_VERSION = "1"
-WORD_PATTERN = re.compile(r"[a-z][a-z'-]*")
-IRREGULAR_ENGLISH_LEMMAS = {
+DATABASE_VERSION = "2"
+IRREGULAR_ENGLISH_ALIASES = {
     "am": "be",
     "are": "be",
     "is": "be",
@@ -40,51 +36,39 @@ def normalize(value: str) -> str | None:
     return normalized
 
 
-def simple_english_lemma(value: str) -> str:
-    word = IRREGULAR_ENGLISH_LEMMAS.get(value, value)
-    if not WORD_PATTERN.fullmatch(word):
-        return word
-    if word.endswith("'s") and len(word) > 4:
-        return word[:-2]
-    if word.endswith("ies") and len(word) > 5:
-        return word[:-3] + "y"
-    if word.endswith("ing") and len(word) > 6:
-        return undouble_final_consonant(word[:-3])
-    if word.endswith("ed") and len(word) > 5:
-        return undouble_final_consonant(word[:-2])
-    if word.endswith(("ches", "shes", "sses", "xes", "zes")) and len(word) > 5:
-        return word[:-2]
-    if word.endswith("s") and not word.endswith("ss") and len(word) > 4:
-        return word[:-1]
-    return word
+def frequency_keys(value: str) -> list[str]:
+    keys = [value]
 
+    alias = IRREGULAR_ENGLISH_ALIASES.get(value)
+    if alias is not None:
+        keys.append(alias)
 
-def undouble_final_consonant(value: str) -> str:
-    if len(value) >= 2 and value[-1] == value[-2] and value[-1] not in "aeiou":
-        return value[:-1]
-    return value
+    if value.endswith("'s") and len(value) > 4:
+        keys.append(value[:-2])
+
+    return list(dict.fromkeys(key for key in (normalize(key) for key in keys) if key is not None))
 
 
 def build_entries(language: str, limit: int) -> dict[str, tuple[float, str, int]]:
+    from wordfreq import top_n_list, zipf_frequency
+
     entries: dict[str, tuple[float, str, int]] = {}
     for raw_word in top_n_list(language, limit):
         word = normalize(raw_word)
         if word is None:
             continue
-        lemma = normalize(simple_english_lemma(word))
-        if lemma is None:
-            continue
 
         zipf = float(zipf_frequency(word, language))
-        current = entries.get(lemma)
-        if current is None:
-            entries[lemma] = (zipf, word, 1)
-        else:
-            current_zipf, current_word, count = current
-            if zipf > current_zipf:
-                entries[lemma] = (zipf, word, count + 1)
+        for key in frequency_keys(word):
+            current = entries.get(key)
+            if current is None:
+                entries[key] = (zipf, word, 1)
             else:
-                entries[lemma] = (current_zipf, current_word, count + 1)
+                current_zipf, current_word, count = current
+                if zipf > current_zipf:
+                    entries[key] = (zipf, word, count + 1)
+                else:
+                    entries[key] = (current_zipf, current_word, count + 1)
     return entries
 
 
@@ -122,8 +106,8 @@ def write_database(output: Path, language: str, limit: int, entries: dict[str, t
             "supported_languages": language,
             "generated_at_utc": dt.datetime.now(dt.timezone.utc).isoformat(),
             "word_limit": str(limit),
-            "normalization_rules": "trim, lowercase, reject blank/_/no-letter-or-digit",
-            "lemmatizer": "simple-english-compatible-with-runtime-lemma-keys",
+            "normalization_rules": "trim, lowercase, reject blank/_/no-letter-or-digit, exact wordfreq forms",
+            "lemmatizer": "exact-wordfreq-forms-with-curated-irregular-and-possessive-aliases",
         }
         connection.executemany(
             "INSERT INTO metadata(key, value) VALUES (?, ?)",
@@ -170,4 +154,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

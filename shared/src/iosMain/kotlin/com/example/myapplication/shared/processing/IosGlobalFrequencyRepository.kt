@@ -32,6 +32,9 @@ class IosGlobalFrequencyRepositoryFactory {
             name = "global-frequency",
             ofType = "sqlite",
             inDirectory = "frequency",
+        ) ?: NSBundle.mainBundle.pathForResource(
+            name = "global-frequency",
+            ofType = "sqlite",
         ) ?: error("Bundled global frequency database was not found.")
 
         val targetDirectory = frequencyDirectory()
@@ -43,15 +46,14 @@ class IosGlobalFrequencyRepositoryFactory {
             error = null,
         )
 
-        if (NSFileManager.defaultManager.fileExistsAtPath(targetPath)) {
-            NSFileManager.defaultManager.removeItemAtPath(targetPath, null)
+        if (!NSFileManager.defaultManager.fileExistsAtPath(targetPath)) {
+            val copied = NSFileManager.defaultManager.copyItemAtPath(
+                srcPath = sourcePath,
+                toPath = targetPath,
+                error = null,
+            )
+            check(copied) { "Could not install bundled global frequency database." }
         }
-        val copied = NSFileManager.defaultManager.copyItemAtPath(
-            srcPath = sourcePath,
-            toPath = targetPath,
-            error = null,
-        )
-        check(copied) { "Could not install bundled global frequency database." }
 
         return targetPath
     }

@@ -9,7 +9,7 @@ private let analysisProvider = "udpipe"
 private let analysisModelId = "english-ewt"
 private let analysisModelVersion = "ud-2.5-191206"
 private let analysisIndexVersion: Int64 = 3
-private let preprocessingPipelineFingerprint = "udpipe-analysis@1|build-lemma-index@1|persist-book-index@1"
+private let preprocessingPipelineFingerprint = "udpipe-analysis@1|build-lemma-candidates@1|filter-lemma-candidates@1|score-lemma-index@1|persist-book-index@1"
 private let debugLemmaExportLimit = 1_000
 
 final class IosBookLibraryGateway: BookLibraryGateway {
@@ -37,17 +37,11 @@ final class IosBookLibraryGateway: BookLibraryGateway {
                     onResult(book)
                 }
 
-                _ = IosBookProcessingRunner(store: store).process(
+                processBookInBackground(
                     book: book,
-                    sections: importedBook.sections
+                    sections: importedBook.sections,
+                    onProcessingChanged: onProcessingChanged
                 )
-                #if DEBUG
-                exportTopLemmasForDebug(book: book)
-                #endif
-                let updatedBook = store.getBook(uriString: uriString, language: analysisLanguage) ?? book
-                await MainActor.run {
-                    onProcessingChanged(updatedBook)
-                }
             } catch {
                 await MainActor.run {
                     onError(IosReaderError.message(for: error))
@@ -84,15 +78,37 @@ final class IosBookLibraryGateway: BookLibraryGateway {
         Task {
             do {
                 let importedBook = try await importBook(uriString: uriString)
-                _ = IosBookProcessingRunner(store: store).process(
+                processBookInBackground(
                     book: importedBook.book,
                     sections: importedBook.sections
                 )
-                #if DEBUG
-                exportTopLemmasForDebug(book: importedBook.book)
-                #endif
             } catch {
                 NSLog("Could not refresh stale book analysis: \(error)")
+            }
+        }
+    }
+
+    private func processBookInBackground(
+        book: BookItem,
+        sections: [TextSection],
+        onProcessingChanged: ((BookItem) -> Void)? = nil
+    ) {
+        DispatchQueue.global(qos: .utility).async {
+            let processingStore = IosBookLibraryStoreFactory().create()
+            _ = IosBookProcessingRunner(store: processingStore).process(
+                book: book,
+                sections: sections
+            )
+            #if DEBUG
+            Self.exportTopLemmasForDebug(book: book, store: processingStore)
+            #endif
+
+            guard let onProcessingChanged else {
+                return
+            }
+            let updatedBook = processingStore.getBook(uriString: book.uriString, language: analysisLanguage) ?? book
+            DispatchQueue.main.async {
+                onProcessingChanged(updatedBook)
             }
         }
     }
@@ -180,7 +196,7 @@ final class IosBookLibraryGateway: BookLibraryGateway {
     }
 
     #if DEBUG
-    private func exportTopLemmasForDebug(book: BookItem) {
+    private static func exportTopLemmasForDebug(book: BookItem, store: BookLibraryStore) {
         let lemmas = store.getLemmaCounts(bookId: book.id, language: analysisLanguage)
         guard !lemmas.isEmpty else {
             return

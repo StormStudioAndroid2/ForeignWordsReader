@@ -35,8 +35,14 @@ class BookAnalysisProcessorTest {
     @Test
     fun runsDefaultPipelineAndPersistsCompletedStatus() {
         val store = FakeProcessingStore()
+        val analysisProvider = FakeTextAnalysisProvider(
+            TextAnalysisResult.Success(
+                metadata = testMetadata(),
+                tokens = List(5) { testToken(lemma = "read") },
+            ),
+        )
 
-        val status = processor(store = store).processBook(
+        val status = processor(store = store, analysisProvider = analysisProvider).processBook(
             book = TestBook,
             sections = listOf(TextSection(sectionId = "section-1", text = "Readers read books.")),
         )
@@ -45,7 +51,7 @@ class BookAnalysisProcessorTest {
         assertEquals(DefaultBookPreprocessingPipelineFingerprint, status.pipelineFingerprint)
         assertEquals(1L, status.uniqueLemmaCount)
         assertEquals(status, store.replacedStatus)
-        assertEquals(1L, store.replacedIndex?.lemmaCounts?.firstOrNull()?.totalCount)
+        assertEquals(5L, store.replacedIndex?.lemmaCounts?.firstOrNull()?.totalCount)
     }
 
     @Test
@@ -72,10 +78,11 @@ class BookAnalysisProcessorTest {
 
     private fun processor(
         store: FakeProcessingStore,
+        analysisProvider: TextAnalysisProvider = FakeTextAnalysisProvider(),
         pipeline: BookPreprocessingPipeline = BookPreprocessingPipeline.default(
             store = store,
             modelRepository = FakeModelRepository(),
-            analysisProvider = FakeTextAnalysisProvider(),
+            analysisProvider = analysisProvider,
             clockMillis = { 2_000L },
             indexBuilder = BookIndexBuilder(),
         ),
@@ -83,7 +90,7 @@ class BookAnalysisProcessorTest {
         BookAnalysisProcessor(
             store = store,
             modelRepository = FakeModelRepository(),
-            analysisProvider = FakeTextAnalysisProvider(),
+            analysisProvider = analysisProvider,
             clockMillis = { 2_000L },
             pipeline = pipeline,
         )
