@@ -1,0 +1,7 @@
+ALTER TABLE book_analysis_metadata
+ADD COLUMN pipeline_fingerprint TEXT NOT NULL DEFAULT 'udpipe-analysis@1|build-lemma-index@1|persist-book-index@1';
+
+DROP INDEX book_analysis_metadata_current;
+
+CREATE INDEX book_analysis_metadata_current
+ON book_analysis_metadata(book_id, language, nlp_provider, model_version, index_version, pipeline_fingerprint, state);

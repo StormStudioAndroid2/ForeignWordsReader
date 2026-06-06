@@ -2,6 +2,7 @@ package com.example.myapplication.shared.main
 
 import com.arkivanov.decompose.value.MutableValue
 import com.arkivanov.decompose.value.Value
+import com.example.myapplication.shared.processing.BookProcessingState
 
 object PreviewMainComponent : MainComponent {
     override val model: Value<MainComponent.Model> =
@@ -15,6 +16,7 @@ object PreviewMainComponent : MainComponent {
                         author = "Unknown author",
                         coverUriString = null,
                         lastOpenedAtMillis = 0L,
+                        processingState = BookProcessingState.Processing,
                     ),
                 ),
             ),

@@ -9,14 +9,22 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.material.Icon
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Slider
 import androidx.compose.material.Surface
 import androidx.compose.material.Text
 import androidx.compose.material.TextButton
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.List
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -33,6 +41,7 @@ fun BoxScope.ReaderChromeOverlay(
     visible: Boolean,
     progress: Float,
     onProgressSeeked: (Float) -> Unit,
+    onSearchClicked: () -> Unit,
 ) {
     AnimatedVisibility(
         visible = visible,
@@ -40,7 +49,9 @@ fun BoxScope.ReaderChromeOverlay(
         enter = fadeIn() + slideInVertically { -it },
         exit = fadeOut() + slideOutVertically { -it },
     ) {
-        ReaderTopStripe()
+        ReaderTopStripe(
+            onSearchClicked = onSearchClicked,
+        )
     }
 
     AnimatedVisibility(
@@ -57,7 +68,9 @@ fun BoxScope.ReaderChromeOverlay(
 }
 
 @Composable
-private fun ReaderTopStripe() {
+private fun ReaderTopStripe(
+    onSearchClicked: () -> Unit,
+) {
     Surface(
         color = MaterialTheme.colors.surface.copy(alpha = 0.94f),
         elevation = 8.dp,
@@ -70,16 +83,46 @@ private fun ReaderTopStripe() {
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceEvenly,
         ) {
-            TextButton(onClick = {}) {
+            TextButton(
+                modifier = Modifier.widthIn(min = 88.dp),
+                onClick = onSearchClicked,
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Search,
+                    contentDescription = null,
+                )
+                Spacer(modifier = Modifier.width(4.dp))
                 Text("Search")
             }
-            TextButton(onClick = {}) {
+            TextButton(
+                modifier = Modifier.widthIn(min = 88.dp),
+                enabled = false,
+                onClick = {},
+            ) {
                 Text("Bookmark")
             }
-            TextButton(onClick = {}) {
+            TextButton(
+                modifier = Modifier.widthIn(min = 88.dp),
+                enabled = false,
+                onClick = {},
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Settings,
+                    contentDescription = null,
+                )
+                Spacer(modifier = Modifier.width(4.dp))
                 Text("Settings")
             }
-            TextButton(onClick = {}) {
+            TextButton(
+                modifier = Modifier.widthIn(min = 88.dp),
+                enabled = false,
+                onClick = {},
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.List,
+                    contentDescription = null,
+                )
+                Spacer(modifier = Modifier.width(4.dp))
                 Text("Contents")
             }
         }

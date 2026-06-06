@@ -10,12 +10,19 @@ class UnsupportedReaderComponent(
     private val onFinished: () -> Unit,
 ) : ReaderComponent, ComponentContext by componentContext {
 
+    override val search: SearchComponent =
+        DefaultSearchComponent(
+            componentContext = componentContext,
+            gateway = EmptyReaderSearchGateway,
+        )
+
     override val model: Value<ReaderComponent.Model> =
         MutableValue(
             ReaderComponent.Model(
                 uriString = uriString,
                 status = ReaderComponent.Status.Error,
                 errorMessage = "EPUB reading is available on Android only.",
+                title = "Error"
             ),
         )
 

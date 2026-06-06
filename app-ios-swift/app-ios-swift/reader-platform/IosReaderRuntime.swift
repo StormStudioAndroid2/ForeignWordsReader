@@ -11,6 +11,7 @@ final class IosReaderRuntime {
     private let model: MutableValue<ReaderComponentModel>
     private let state: IosReaderState
     private let readium = IosReadium()
+    let searchGateway = IosReaderSearchGateway()
     private var task: Task<Void, Never>?
     private var securityAccess: SecurityScopedURLAccess?
     private var pendingLocator: PendingReaderLocator?
@@ -54,6 +55,7 @@ final class IosReaderRuntime {
         isClosed = true
         task?.cancel()
         task = nil
+        searchGateway.invalidate()
         persistPendingLocator(force: true)
         securityAccess?.stop()
         securityAccess = nil
@@ -117,15 +119,18 @@ final class IosReaderRuntime {
             guard !Task.isCancelled, !isClosed else { return }
 
             IosReaderPersistence.saveLastEpub(uriString: uriString)
+            searchGateway.update(publication: publication, reader: reader)
             await publish(
                 status: .ready,
                 reader: reader,
                 readingProgress: restoredLocator?.readingProgress ?? 0,
-                currentPage: Int32(restoredLocator?.locations.position ?? 0)
+                currentPage: Int32(restoredLocator?.locations.position ?? 0),
+                title: publication.metadata.title
             )
         } catch is CancellationError {
             return
         } catch {
+            searchGateway.invalidate()
             securityAccess?.stop()
             securityAccess = nil
             await publish(status: .error, message: IosReaderError.message(for: error))
@@ -151,7 +156,8 @@ final class IosReaderRuntime {
             status: model.value.status,
             errorMessage: model.value.errorMessage,
             readingProgress: readingProgress,
-            currentPage: currentPage
+            currentPage: currentPage,
+            title: model.value.title
         )
     }
 
@@ -175,7 +181,8 @@ final class IosReaderRuntime {
         message: String? = nil,
         reader: IosEpubReaderViewController? = nil,
         readingProgress: Double = 0,
-        currentPage: Int32 = 0
+        currentPage: Int32 = 0,
+        title: String? = nil
     ) {
         guard !isClosed else { return }
 
@@ -184,7 +191,8 @@ final class IosReaderRuntime {
             status: status,
             errorMessage: message,
             readingProgress: readingProgress,
-            currentPage: currentPage
+            currentPage: currentPage,
+            title: title ?? ""
         )
 
         if let reader {

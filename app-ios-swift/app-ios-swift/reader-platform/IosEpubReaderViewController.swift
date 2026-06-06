@@ -2,6 +2,9 @@ import ReadiumNavigator
 import ReadiumShared
 import UIKit
 
+private let searchDecorationGroup = "search"
+private let searchDecorationId = "selected-search-result"
+
 final class IosEpubReaderViewController: UIViewController, EPUBNavigatorDelegate {
     private let publication: Publication
     private let navigator: EPUBNavigatorViewController
@@ -80,6 +83,38 @@ final class IosEpubReaderViewController: UIViewController, EPUBNavigatorDelegate
             return
         }
         _ = await navigator.go(to: locator, options: .animated)
+    }
+
+    @MainActor
+    func goToSearchResult(_ locator: Locator) async -> Bool {
+        let didNavigate = await navigator.go(to: locator, options: .animated)
+        if didNavigate {
+            showSearchHighlight(locator)
+        }
+        return didNavigate
+    }
+
+    @MainActor
+    func clearSearchHighlight() {
+        navigator.apply(decorations: [], in: searchDecorationGroup)
+    }
+
+    @MainActor
+    private func showSearchHighlight(_ locator: Locator) {
+        guard navigator.supports(decorationStyle: .highlight) else {
+            return
+        }
+
+        navigator.apply(
+            decorations: [
+                Decoration(
+                    id: searchDecorationId,
+                    locator: locator,
+                    style: .highlight(tint: UIColor.systemYellow, isActive: true)
+                ),
+            ],
+            in: searchDecorationGroup
+        )
     }
 
     func navigator(_ navigator: Navigator, locationDidChange locator: Locator) {

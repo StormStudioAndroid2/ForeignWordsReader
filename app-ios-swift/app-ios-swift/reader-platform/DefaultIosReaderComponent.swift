@@ -7,6 +7,7 @@ final class DefaultIosReaderComponent: ReaderComponent {
     private let runtime: IosReaderRuntime
 
     let readerState: IosReaderState
+    let search: SearchComponent
 
     var model: Value<ReaderComponentModel> {
         mutableModel
@@ -25,7 +26,8 @@ final class DefaultIosReaderComponent: ReaderComponent {
             status: ReaderComponentStatus.loading,
             errorMessage: nil,
             readingProgress: 0,
-            currentPage: 0
+            currentPage: 0,
+            title: ""
         )
         self.mutableModel = mutableValue(initialModel)
 
@@ -35,6 +37,10 @@ final class DefaultIosReaderComponent: ReaderComponent {
             uriString: uriString,
             model: mutableModel,
             state: state
+        )
+        self.search = DefaultSearchComponent(
+            componentContext: componentContext,
+            gateway: runtime.searchGateway
         )
         runtime.open()
     }
@@ -63,7 +69,8 @@ final class DefaultIosReaderComponent: ReaderComponent {
             status: mutableModel.value.status,
             errorMessage: mutableModel.value.errorMessage,
             readingProgress: readingProgress,
-            currentPage: currentPage
+            currentPage: currentPage,
+            title: mutableModel.value.title
         )
     }
 }

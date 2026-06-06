@@ -5,6 +5,7 @@ import com.arkivanov.decompose.value.Value
 interface ReaderComponent {
 
     val model: Value<Model>
+    val search: SearchComponent
 
     fun onBackClicked()
     fun onPreviousClicked()
@@ -17,6 +18,7 @@ interface ReaderComponent {
         val errorMessage: String? = null,
         val readingProgress: Double = 0.0,
         val currentPage: Int = 0,
+        val title: String
     )
 
     enum class Status {

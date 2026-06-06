@@ -36,11 +36,15 @@ fun ReadiumNavigatorHost(
     onCenterTap: () -> Unit,
     seekRequest: Pair<Int, Float>?,
     onSeekRequestHandled: () -> Unit,
+    onNavigatorAttached: (EpubNavigatorFragment) -> Unit,
+    onNavigatorDetached: (EpubNavigatorFragment) -> Unit,
 ) {
     val context = LocalContext.current
     val currentOnLocatorChanged by rememberUpdatedState(onLocatorChanged)
     val currentOnCenterTap by rememberUpdatedState(onCenterTap)
     val currentOnSeekRequestHandled by rememberUpdatedState(onSeekRequestHandled)
+    val currentOnNavigatorAttached by rememberUpdatedState(onNavigatorAttached)
+    val currentOnNavigatorDetached by rememberUpdatedState(onNavigatorDetached)
 
     DisposableEffect(state.readerKey) {
         onDispose {
@@ -52,6 +56,7 @@ fun ReadiumNavigatorHost(
 
     LaunchedEffect(state.readerKey) {
         val navigator = fragmentManager.awaitCurrentNavigator()
+        currentOnNavigatorAttached(navigator)
         val directionalNavigation = DirectionalNavigationAdapter(
             navigator = navigator,
             animatedTransition = true,
@@ -87,6 +92,7 @@ fun ReadiumNavigatorHost(
         } finally {
             navigator.removeInputListener(overlayTapListener)
             navigator.removeInputListener(directionalNavigation)
+            currentOnNavigatorDetached(navigator)
         }
     }
 

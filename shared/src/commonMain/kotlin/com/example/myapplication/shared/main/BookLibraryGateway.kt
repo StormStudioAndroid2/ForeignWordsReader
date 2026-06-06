@@ -9,6 +9,7 @@ interface BookLibraryGateway {
     fun importBook(
         uriString: String,
         onResult: (BookItem) -> Unit,
+        onProcessingChanged: (BookItem) -> Unit,
         onError: (String) -> Unit,
     )
 
@@ -30,6 +31,7 @@ object EmptyBookLibraryGateway : BookLibraryGateway {
     override fun importBook(
         uriString: String,
         onResult: (BookItem) -> Unit,
+        onProcessingChanged: (BookItem) -> Unit,
         onError: (String) -> Unit,
     ) {
         onError("EPUB library is not available on this platform.")

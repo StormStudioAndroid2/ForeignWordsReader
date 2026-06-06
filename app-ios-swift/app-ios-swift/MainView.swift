@@ -42,9 +42,10 @@ struct MainView: View {
                             BookRow(book: book) {
                                 component.onBookClicked(uriString: book.uriString)
                             }
+                            Divider()
+                                .padding(.horizontal, 20)
                         }
                     }
-                    .padding(.horizontal, 16)
                     .padding(.vertical, 8)
                 }
             }
@@ -102,13 +103,47 @@ private struct BookRow: View {
                         .font(.subheadline)
                         .foregroundColor(.secondary)
                         .lineLimit(1)
+                    BookProcessingLabel(book: book)
                 }
                 Spacer(minLength: 0)
             }
+            .frame(minHeight: 124)
+            .padding(.horizontal, 20)
             .padding(.vertical, 10)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+    }
+}
+
+private struct BookProcessingLabel: View {
+    let book: BookItem
+
+    var body: some View {
+        switch book.processingState {
+        case .processing:
+            HStack(spacing: 8) {
+                ProgressView()
+                    .scaleEffect(0.7)
+                Text("Processing words...")
+                    .font(.caption)
+                    .foregroundColor(.accentColor)
+            }
+            .padding(.top, 2)
+        case .completed:
+            Text("\(book.processingTokenCount) tokens processed")
+                .font(.caption)
+                .foregroundColor(.secondary)
+                .padding(.top, 2)
+        case .failed:
+            Text(book.processingErrorMessage ?? "Word processing failed")
+                .font(.caption)
+                .foregroundColor(.red)
+                .lineLimit(2)
+                .padding(.top, 2)
+        default:
+            EmptyView()
+        }
     }
 }
 
@@ -130,11 +165,11 @@ private struct BookCover: View {
                     .scaledToFill()
             } else {
                 ZStack {
-                    Color(red: 0.88, green: 0.91, blue: 0.94)
+                    Color(red: 224.0 / 255.0, green: 231.0 / 255.0, blue: 239.0 / 255.0)
                     Text(book.title.initials)
                         .font(.headline)
                         .fontWeight(.semibold)
-                        .foregroundColor(Color(red: 0.15, green: 0.2, blue: 0.22))
+                        .foregroundColor(Color(red: 38.0 / 255.0, green: 50.0 / 255.0, blue: 56.0 / 255.0))
                 }
             }
         }

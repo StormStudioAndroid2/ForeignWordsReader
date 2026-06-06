@@ -54,5 +54,6 @@ dependencies {
     implementation(compose.ui)
     implementation(compose.foundation)
     implementation(compose.material)
+    implementation(libs.compose.material.iconsCore)
     coreLibraryDesugaring(libs.android.tools.desugarJdkLibs)
 }

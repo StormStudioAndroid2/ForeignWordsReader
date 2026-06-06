@@ -1,0 +1,14 @@
+ALTER TABLE book_lemma_total
+ADD COLUMN global_frequency_zipf REAL;
+
+ALTER TABLE book_lemma_total
+ADD COLUMN tf_idf_score REAL NOT NULL DEFAULT 0.0;
+
+DROP INDEX book_lemma_total_rank;
+
+CREATE INDEX book_lemma_total_rank
+ON book_lemma_total(book_id, language, tf_idf_score DESC, total_count DESC, lemma ASC);
+
+UPDATE book_lemma_total
+SET tf_idf_score = CAST(total_count AS REAL)
+WHERE tf_idf_score = 0.0;
