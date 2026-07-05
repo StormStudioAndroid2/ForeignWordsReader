@@ -8,6 +8,8 @@ interface GlobalFrequencyRepository {
         language: String,
         lemmas: Set<String>,
     ): Map<String, Double>
+
+    fun close() = Unit
 }
 
 object EmptyGlobalFrequencyRepository : GlobalFrequencyRepository {
@@ -73,8 +75,11 @@ class SqlDelightGlobalFrequencyRepository(
         return frequencies
     }
 
+    override fun close() {
+        driver.close()
+    }
+
     private companion object {
         const val DefaultBatchSize = 250
     }
 }
-
