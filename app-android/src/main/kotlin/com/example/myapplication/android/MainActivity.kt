@@ -1,5 +1,6 @@
 package com.example.myapplication.android
 
+import android.content.pm.ApplicationInfo
 import android.os.Bundle
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.WindowInsets
@@ -19,6 +20,7 @@ import com.arkivanov.decompose.extensions.compose.stack.animation.plus
 import com.arkivanov.decompose.extensions.compose.stack.animation.scale
 import com.arkivanov.decompose.extensions.compose.stack.animation.stackAnimation
 import com.example.myapplication.android.reader.AndroidBookLibraryGateway
+import com.example.myapplication.android.reader.AndroidDebugBookBatchProcessor
 import com.example.myapplication.android.reader.DefaultAndroidReaderComponent
 import com.example.myapplication.android.reader.lastReadableEpubUriString
 import com.example.myapplication.android.ui.AndroidWelcomeContent
@@ -34,6 +36,7 @@ class MainActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        val bookLibraryGateway = AndroidBookLibraryGateway(application)
         val root = DefaultRootComponent(
             componentContext = defaultComponentContext(),
             readerComponentFactory = { childComponentContext, uriString, onFinished ->
@@ -44,7 +47,7 @@ class MainActivity : FragmentActivity() {
                     onFinished = onFinished,
                 )
             },
-            bookLibraryGateway = AndroidBookLibraryGateway(application),
+            bookLibraryGateway = bookLibraryGateway,
             initialReaderUriString = lastReadableEpubUriString(this),
         )
 
@@ -52,6 +55,7 @@ class MainActivity : FragmentActivity() {
             AndroidRootContent(
                 component = root,
                 fragmentManager = supportFragmentManager,
+                debugBatchProcessor = bookLibraryGateway.takeIf { application.isDebuggable() },
             )
         }
     }
@@ -62,10 +66,14 @@ class MainActivity : FragmentActivity() {
     }
 }
 
+private fun android.app.Application.isDebuggable(): Boolean =
+    (applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
+
 @Composable
 private fun AndroidRootContent(
     component: RootComponent,
     fragmentManager: FragmentManager,
+    debugBatchProcessor: AndroidDebugBookBatchProcessor?,
     modifier: Modifier = Modifier,
 ) {
     MaterialTheme {
@@ -76,7 +84,10 @@ private fun AndroidRootContent(
                 animation = stackAnimation(fade() + scale()),
             ) {
                 when (val child = it.instance) {
-                    is Child.Main -> AndroidMainContent(component = child.component)
+                    is Child.Main -> AndroidMainContent(
+                        component = child.component,
+                        debugBatchProcessor = debugBatchProcessor,
+                    )
                     is Child.Reader -> AndroidReaderContent(
                         component = child.component,
                         fragmentManager = fragmentManager,

@@ -1,6 +1,7 @@
 package com.example.myapplication.shared.processing
 
 import android.content.Context
+import android.database.sqlite.SQLiteDatabase
 import androidx.sqlite.db.SupportSQLiteDatabase
 import androidx.sqlite.db.SupportSQLiteOpenHelper
 import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
@@ -27,10 +28,7 @@ class AndroidGlobalFrequencyRepositoryFactory(
 
     private fun installDatabase(): File {
         val target = appContext.getDatabasePath(FrequencyDatabaseName)
-        val assetLength = appContext.assets.open(FrequencyDatabaseAssetPath).use { input ->
-            input.available().toLong()
-        }
-        if (!target.exists() || target.length() != assetLength) {
+        if (installedDatabaseVersion(target) != ExpectedFrequencyDatabaseVersion) {
             target.parentFile?.mkdirs()
             appContext.assets.open(FrequencyDatabaseAssetPath).use { input ->
                 target.outputStream().use { output ->
@@ -41,9 +39,31 @@ class AndroidGlobalFrequencyRepositoryFactory(
         return target
     }
 
+    private fun installedDatabaseVersion(database: File): String? {
+        if (!database.exists() || database.length() == 0L) {
+            return null
+        }
+
+        return runCatching {
+            SQLiteDatabase.openDatabase(
+                database.absolutePath,
+                null,
+                SQLiteDatabase.OPEN_READONLY,
+            ).use { sqliteDatabase ->
+                sqliteDatabase.rawQuery(
+                    "SELECT value FROM metadata WHERE key = ?",
+                    arrayOf("database_version"),
+                ).use { cursor ->
+                    if (cursor.moveToFirst()) cursor.getString(0) else null
+                }
+            }
+        }.getOrNull()
+    }
+
     private companion object {
         const val FrequencyDatabaseAssetPath = "frequency/global-frequency.sqlite"
         const val FrequencyDatabaseName = "global-frequency.sqlite"
+        const val ExpectedFrequencyDatabaseVersion = "3"
 
         val FrequencyDatabaseCallback = object : SupportSQLiteOpenHelper.Callback(version = 1) {
             override fun onCreate(db: SupportSQLiteDatabase) = Unit

@@ -106,7 +106,7 @@ Files to look:
 - `shared/src/iosMain/kotlin/com/example/myapplication/shared/processing/IosTextAnalysisProvider.kt`
 - `native/udpipe/adapter/udpipe_adapter.cpp`
 - `native/udpipe/adapter/udpipe_jni.cpp`
-- `shared/src/androidMain/assets/udpipe/english-ewt.udpipe`
+- `shared/src/main/assets/udpipe/english-ewt.udpipe`
 - `app-ios-swift/app-ios-swift/Resources/udpipe/english-ewt.udpipe`
 
 ## 7. CoNLL-U is parsed into shared tokens
@@ -180,9 +180,20 @@ Files to look:
 ## 10. Current consumers and debug output
 
 The library UI currently shows processing state, token count, and failures from
-`BookItem`. Debug builds also export top lemma files after processing. The saved
-lemma index is available through `BookLibraryStore.getLemmaCounts(...)` and
-`getChunkLemmaCounts(...)`; the reader does not recalculate frequencies.
+`BookItem`. Debug builds also export per-book processing logs and top lemma
+files after processing. Android debug builds additionally expose a folder
+processor from the library screen: choose a folder with EPUB files and the app
+imports and force-processes each direct EPUB child sequentially.
+
+Android debug exports are written under `files/debug-lemma-index` with filenames
+that include the book title, export date, and short book id:
+
+- `Title-YYYYMMDD-HHMMSS-bookid-processing-log.txt`
+- `Title-YYYYMMDD-HHMMSS-bookid-top-lemmas.txt`
+- `Title-YYYYMMDD-HHMMSS-bookid-top-lemmas-tfidf.txt`
+
+The saved lemma index is available through `BookLibraryStore.getLemmaCounts(...)`
+and `getChunkLemmaCounts(...)`; the reader does not recalculate frequencies.
 
 Files to look:
 
@@ -202,7 +213,7 @@ it during index building.
 Files to look:
 
 - `scripts/generate-wordfreq-db.py`
-- `shared/src/androidMain/assets/frequency/global-frequency.sqlite`
+- `shared/src/main/assets/frequency/global-frequency.sqlite`
 - `app-ios-swift/app-ios-swift/Resources/frequency/global-frequency.sqlite`
 
 ## Adding a new universal stage

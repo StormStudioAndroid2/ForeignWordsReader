@@ -32,7 +32,9 @@ import androidx.compose.material.Text
 import androidx.compose.material.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -43,22 +45,48 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.arkivanov.decompose.extensions.compose.subscribeAsState
+import com.example.myapplication.android.reader.AndroidDebugBookBatchProcessor
 import com.example.myapplication.android.ui.reader.LoadingReaderState
 import com.example.myapplication.shared.main.BookItem
 import com.example.myapplication.shared.main.MainComponent
 import com.example.myapplication.shared.processing.BookProcessingState
 
 @Composable
-fun AndroidMainContent(
+internal fun AndroidMainContent(
     component: MainComponent,
+    debugBatchProcessor: AndroidDebugBookBatchProcessor? = null,
     modifier: Modifier = Modifier,
 ) {
     val model by component.model.subscribeAsState()
+    var debugBatchStatus by remember { mutableStateOf<String?>(null) }
     val openDocument = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocument(),
         onResult = { uri: Uri? ->
             if (uri != null) {
                 component.onEpubSelected(uri.toString())
+            }
+        },
+    )
+    val openDebugFolder = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocumentTree(),
+        onResult = { uri: Uri? ->
+            val processor = debugBatchProcessor
+            if (uri != null && processor != null) {
+                debugBatchStatus = "Preparing folder..."
+                processor.processDebugBookFolder(
+                    folderUriString = uri.toString(),
+                    onProgress = { progress ->
+                        debugBatchStatus = "Processing ${progress.currentFileName} " +
+                            "(${progress.processed + 1}/${progress.total})"
+                    },
+                    onComplete = { summary ->
+                        debugBatchStatus = "Debug batch complete: ${summary.succeeded}/${summary.total} processed, " +
+                            "${summary.failed} failed. Logs: ${summary.outputDirectory}"
+                    },
+                    onError = { message ->
+                        debugBatchStatus = message
+                    },
+                )
             }
         },
     )
@@ -72,6 +100,10 @@ fun AndroidMainContent(
         )
     }
 
+    fun openDebugFolderPicker() {
+        openDebugFolder.launch(null)
+    }
+
     Scaffold(
         modifier = modifier,
         topBar = {
@@ -81,13 +113,35 @@ fun AndroidMainContent(
         },
         bottomBar = {
             Surface(elevation = 8.dp) {
-                Button(
+                Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(16.dp),
-                    onClick = ::openEpubPicker,
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
-                    Text("Open new book")
+                    if (debugBatchProcessor != null) {
+                        Button(
+                            modifier = Modifier.fillMaxWidth(),
+                            onClick = ::openDebugFolderPicker,
+                        ) {
+                            Text("Debug: process folder")
+                        }
+                    }
+
+                    Button(
+                        modifier = Modifier.fillMaxWidth(),
+                        onClick = ::openEpubPicker,
+                    ) {
+                        Text("Open new book")
+                    }
+
+                    if (debugBatchStatus != null) {
+                        Text(
+                            text = debugBatchStatus.orEmpty(),
+                            style = MaterialTheme.typography.caption,
+                            color = MaterialTheme.colors.onSurface.copy(alpha = 0.68f),
+                        )
+                    }
                 }
             }
         },
