@@ -1,182 +1,73 @@
 # AGENTS.md
 
-## Scope
+This file is the mandatory entrypoint for AI agents working in this repository.
+It is intentionally short. The detailed routing and domain rules live in
+`docs/agent-harness.md` and the domain docs under `docs/domains/`.
 
-MVP reading app:
+## Mandatory workflow
 
-- local library
-- open book
-- restore position
-- simple word frequency per book
+Before making code changes:
 
-No sync, highlights, notes, search, complex navigation.
+1. Read `docs/agent-harness.md`.
+2. Use the task rank matrix to choose the verification depth.
+3. Identify every domain area touched by the requested change.
+4. Read the relevant domain docs before editing.
+5. Check that the planned change fits the owning domain responsibility.
+6. Implement only inside the correct ownership boundary.
+7. Re-check adjacent domains after the implementation shape is clear.
+8. Add or update focused tests where the changed contract needs protection.
+9. Update docs when ownership, flow, persistence, platform behavior, or test
+   expectations change.
+10. Run the smallest relevant verification set and report skipped checks.
 
----
+## Core boundary rule
 
-## Tech Stack
+Shared code owns:
 
-- Kotlin Multiplatform
-- Decompose (navigation + components)
-- Android → Readium Kotlin
-- iOS → Readium Swift Toolkit
+- public contracts and domain models;
+- Decompose components and state transitions;
+- root navigation semantics;
+- library, reader, search, preprocessing, and storage behavior;
+- SQL schema and migration contracts;
+- platform-neutral test contracts.
 
----
+Platform code owns:
 
-## Project Structure
+- Android Compose and iOS SwiftUI/UIKit rendering;
+- Readium Kotlin and Readium Swift Toolkit runtime details;
+- Android SAF permissions and iOS security-scoped bookmarks;
+- platform file locations and asset installation;
+- native provider wiring and lifecycle;
+- device/simulator launch flows.
 
-    app/
-    ├─ shared/
-    │  ├─ model/
-    │  ├─ data/
-    │  ├─ root/
-    │  ├─ library/
-    │  └─ reader/
-    │
-    ├─ app-android/
-    │  ├─ root-ui/
-    │  ├─ library-ui/
-    │  └─ reader-platform/
-    │
-    ├─ app-ios/
-    │  └─ framework integration
-    │
-    └─ app-ios-swift/
-       ├─ root-ui/
-       ├─ library-ui/
-       └─ reader-platform/
+Do not leak Android, iOS, Readium, SwiftUI, UIKit, Fragment, native handle,
+permission, bookmark, or platform file-system objects into `commonMain`.
 
----
+## Domain docs
 
-## Decompose Rules
+Use these source-of-truth documents:
 
-- one root component
-- one ChildStack
-- one component per feature
-- no nested flows in MVP
+- Agent routing: `docs/agent-harness.md`
+- Root/navigation: `docs/domains/app-architecture.md`
+- Library: `docs/domains/library-domain.md`
+- Reader/search: `docs/domains/reader-search-domain.md`
+- Book preprocessing: `docs/domains/book-preprocessing.md`
+- Database/storage: `docs/domains/database-storage.md`
+- Native UDPipe runtime: `docs/domains/native-udpipe-runtime.md`
+- Android platform app: `docs/domains/android-product-app.md`
+- iOS Swift platform app: `docs/domains/ios-swift-product-app.md`
 
-Navigation:
+When a domain doc has `Test contract`, `Coverage expectations`, or `Change
+playbook` sections, follow them for that domain.
 
-    RootComponent
-    └─ ChildStack
-       ├─ LibraryComponent
-       └─ ReaderComponent(bookId)
+## Verification defaults
 
----
+- Task rank and domain verification matrix: `docs/agent-harness.md`
+- Shared/common behavior: `./gradlew :shared:test`
+- Android build/run: follow `docs/domains/android-product-app.md`
+- iOS simulator build/run: follow `docs/domains/ios-swift-product-app.md`
+- Preprocessing-stage changes: use skill `add-book-preprocessing-stage`
+- Docs-only changes: run ASCII and `rg` reference checks
 
-## Shared Layer
-
-Contains:
-
-- models
-- repositories
-- Decompose components
-- reader orchestration
-- reading progress
-- frequency data
-
-Must NOT contain:
-
-- Readium
-- platform UI
-- platform lifecycle
-
----
-
-## Components
-
-### RootComponent
-- controls navigation
-
-### LibraryComponent
-- loads books
-- handles selection
-
-### ReaderComponent
-- opens book
-- restores position
-- observes reader events
-- saves progress
-- provides frequency data
-
----
-
-## Reader Architecture
-
-Split strictly:
-
-### Shared (`shared/reader`)
-- ReaderComponent
-- ReaderState
-- ReaderGateway (contract)
-
-### Android (`app-android/reader-platform`)
-- Readium Kotlin
-- Android reader screen
-- maps events → shared
-
-### iOS (`app-ios-swift/reader-platform`)
-- Readium Swift Toolkit
-- iOS reader screen
-- maps events → shared
-
----
-
-## Boundary Rule
-
-Shared decides:
-
-- what to open
-- where to navigate
-- when to save progress
-- what data to show
-
-Platform decides:
-
-- how to render book
-- how Readium works
-- how events are produced
-
----
-
-## Data Model
-
-### Book
-- id
-- title
-- localPath
-
-### ReadingPosition
-- bookId
-- locator/progression
-
-### BookFrequency
-- bookId
-- word
-- count
-
----
-
-## Frequency Rules
-
-- calculated on import or first open
-- stored in repository
-- reader only reads result
-
----
-
-## UI Rules
-
-- reader UI is platform-specific
-- library UI can be shared or platform-specific
-- no shared reader rendering
-
----
-
-## Complexity Rules
-
-- no extra layers
-- no heavy DI
-- no over-modularization
-- no platform abstraction leaks
-
-Keep it simple.
+Do not run destructive commands such as app uninstall, simulator erase, or data
+reset unless the user explicitly asks for a clean state.
