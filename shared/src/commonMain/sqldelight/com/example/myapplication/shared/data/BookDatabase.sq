@@ -15,7 +15,7 @@ CREATE TABLE book_analysis_metadata (
   model_id TEXT NOT NULL,
   model_version TEXT NOT NULL,
   index_version INTEGER NOT NULL,
-  pipeline_fingerprint TEXT NOT NULL DEFAULT 'udpipe-analysis@1|build-lemma-candidates@1|filter-lemma-candidates@1|score-lemma-index@1|persist-book-index@1',
+  pipeline_fingerprint TEXT NOT NULL DEFAULT 'udpipe-analysis@1|build-lemma-candidates@2|filter-lemma-candidates@1|score-lemma-index@2|persist-book-index@2',
   state TEXT NOT NULL,
   token_count INTEGER NOT NULL DEFAULT 0,
   unique_lemma_count INTEGER NOT NULL DEFAULT 0,
@@ -41,7 +41,20 @@ CREATE TABLE book_lemma_total (
 );
 
 CREATE INDEX book_lemma_total_rank
-ON book_lemma_total(book_id, language, tf_idf_score DESC, total_count DESC, lemma ASC);
+ON book_lemma_total(book_id, language, total_count DESC, tf_idf_score DESC, lemma ASC);
+
+CREATE TABLE book_lemma_surface_form (
+  book_id TEXT NOT NULL,
+  language TEXT NOT NULL,
+  lemma TEXT NOT NULL,
+  surface_word TEXT NOT NULL,
+  surface_count INTEGER NOT NULL,
+  PRIMARY KEY (book_id, language, lemma, surface_word),
+  FOREIGN KEY (book_id, language, lemma) REFERENCES book_lemma_total(book_id, language, lemma) ON DELETE CASCADE
+);
+
+CREATE INDEX book_lemma_surface_form_rank
+ON book_lemma_surface_form(book_id, language, lemma, surface_count DESC, surface_word ASC);
 
 CREATE TABLE book_chunk_lemma_count (
   book_id TEXT NOT NULL,
@@ -171,6 +184,11 @@ DELETE FROM book_lemma_total
 WHERE book_id = ?
   AND language = ?;
 
+deleteLemmaSurfaceForms:
+DELETE FROM book_lemma_surface_form
+WHERE book_id = ?
+  AND language = ?;
+
 deleteChunkLemmaCounts:
 DELETE FROM book_chunk_lemma_count
 WHERE book_id = ?
@@ -187,6 +205,16 @@ INSERT INTO book_lemma_total(
 )
 VALUES (?, ?, ?, ?, ?, ?);
 
+insertLemmaSurfaceForm:
+INSERT INTO book_lemma_surface_form(
+  book_id,
+  language,
+  lemma,
+  surface_word,
+  surface_count
+)
+VALUES (?, ?, ?, ?, ?);
+
 insertChunkLemmaCount:
 INSERT INTO book_chunk_lemma_count(
   book_id,
@@ -202,7 +230,14 @@ SELECT *
 FROM book_lemma_total
 WHERE book_id = ?
   AND language = ?
-ORDER BY tf_idf_score DESC, total_count DESC, lemma ASC;
+ORDER BY total_count DESC, tf_idf_score DESC, lemma ASC;
+
+selectLemmaSurfaceForms:
+SELECT *
+FROM book_lemma_surface_form
+WHERE book_id = ?
+  AND language = ?
+ORDER BY lemma ASC, surface_count DESC, surface_word ASC;
 
 selectChunkLemmaCounts:
 SELECT *

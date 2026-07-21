@@ -152,7 +152,8 @@ and provider lifecycle rules.
 
 `BuildLemmaCandidatesStage` requires completed text analysis, sets
 `processedAtMillis`, and builds lemma candidates and chunk candidate counts
-through `BookIndexBuilder`.
+through `BookIndexBuilder`. Candidate statistics include real surface words
+seen in the text for each normalized lemma key.
 
 `FilterLemmaCandidatesStage` requires lemma candidates and removes lemmas that
 should not enter the scored index.
@@ -171,7 +172,7 @@ The pipeline fingerprint is the ordered `stageId@version` list joined by `|`.
 The current default fingerprint is:
 
 ```text
-udpipe-analysis@1|build-lemma-candidates@1|filter-lemma-candidates@1|score-lemma-index@1|persist-book-index@1
+udpipe-analysis@1|build-lemma-candidates@2|filter-lemma-candidates@1|score-lemma-index@2|persist-book-index@2
 ```
 
 `DefaultBookPreprocessingPipelineFingerprint` must match the default pipeline.
@@ -209,6 +210,8 @@ The persisted per-book index is derived from shared analyzed tokens.
 - default chunk size is `DefaultBookIndexChunkSize`, currently `800`;
 - candidate totals, UPOS counts, dominant UPOS, `PROPN` ratio, and optional
   global Zipf frequency are collected per lemma.
+- candidate surface forms are collected from token surface text and ordered by
+  descending surface count, then surface word.
 
 `LemmaCandidateFilter` rejects candidates when:
 
@@ -226,11 +229,21 @@ The persisted per-book index is derived from shared analyzed tokens.
 and builds:
 
 - book-level lemma totals for `book_lemma_total`;
+- lemma surface forms for `book_lemma_surface_form`;
 - chunk-level accepted lemma counts for `book_chunk_lemma_count`.
 
-Book-level lemmas are ranked by `tfIdfScore` descending, then `totalCount`
-descending, then `lemma` ascending. Stored chunk lookup is ordered by
-`localCount` descending, then `lemma` ascending for a requested chunk.
+The persisted user-facing vocabulary preview is capped by
+`ImportantBookLemmaLimit`, currently `100`. Selection first ranks accepted
+lemmas by `tfIdfScore` descending, then `totalCount` descending, then `lemma`
+ascending, takes the top `100`, and then keeps only lemmas with
+`totalCount > ImportantBookLemmaMinTotalCount`, currently `10`.
+
+The saved book-level preview is ordered for UI display by `totalCount`
+descending, then `tfIdfScore` descending, then `lemma` ascending. Lemmas remain
+internal lookup keys; UI and export surfaces should use the stored surface-word
+list when showing or matching real words from the book. Stored chunk lookup is
+restricted to the selected lemmas and ordered by `localCount` descending, then
+`lemma` ascending for a requested chunk.
 
 ## Persistence contract
 
@@ -250,11 +263,14 @@ The SQL schema stores:
 
 - `book_analysis_metadata`: one status row per book and language;
 - `book_lemma_total`: book-level lemma totals, global Zipf values, and scores;
+- `book_lemma_surface_form`: real surface words and counts for each selected
+  lemma;
 - `book_chunk_lemma_count`: per-chunk lemma counts for accepted lemmas.
 
 `replaceBookIndex(status, index)` must be atomic. It deletes old lemma rows for
 the book and language, upserts the completed processing status, inserts fresh
-book-level lemma totals, and inserts fresh chunk-level lemma counts.
+book-level lemma totals, inserts fresh surface-form rows, and inserts fresh
+chunk-level lemma counts.
 
 Missing analysis metadata maps to `BookProcessingState.NotStarted` in
 library-facing `BookItem` projections.
@@ -349,8 +365,10 @@ Implementation rules:
 ## Consumers and debug output
 
 The library UI consumes processing state from `BookItem`, including state,
-token count, and error message. The reader consumes saved lemma indexes; it does
-not recalculate frequencies.
+token count, and error message. The reader `Words` modal consumes saved
+important-word indexes through `BookLibraryStore.getLemmaCounts(bookId)`;
+it does not recalculate frequencies and must display stored surface words
+instead of raw UDPipe lemmas whenever surface words are available.
 
 Debug builds may export processing logs and top lemma files after processing.
 Android debug builds also expose folder processing from the library screen.

@@ -68,6 +68,7 @@ It stores:
 - local library book metadata;
 - per-book processing metadata;
 - persisted book-level lemma totals;
+- persisted lemma surface forms;
 - persisted per-chunk lemma counts.
 
 Source of truth:
@@ -130,6 +131,8 @@ The current schema stores:
 - `book`: stable book id, EPUB URI, title, author, cover URI, last-opened time;
 - `book_analysis_metadata`: processing state and analysis freshness metadata;
 - `book_lemma_total`: book-level lemma counts, global Zipf values, scores;
+- `book_lemma_surface_form`: real surface words and counts for each selected
+  lemma;
 - `book_chunk_lemma_count`: accepted lemma counts per book chunk.
 
 `BookLibraryStore` is the shared access layer for this database. Feature code
@@ -141,6 +144,11 @@ Current migration history:
 - `2.sqm`: adds global frequency and TF-IDF score columns to lemma totals.
 - `3.sqm`: adds `pipeline_fingerprint` to processing metadata and freshness
   lookup.
+
+The current pre-production schema also includes lemma surface-form storage and
+UI preview ordering. No `4.sqm` migration is required while the app is not in
+production; existing development installs that predate this schema should
+recreate local `book.db` rather than relying on an installed-user migration.
 
 The current `BookDatabase.sq` schema already includes all migrations above for
 new installs.

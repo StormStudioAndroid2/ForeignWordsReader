@@ -8,8 +8,8 @@ private let analysisLanguage = "en"
 private let analysisProvider = "udpipe"
 private let analysisModelId = "english-ewt"
 private let analysisModelVersion = "ud-2.5-191206"
-private let analysisIndexVersion: Int64 = 3
-private let preprocessingPipelineFingerprint = "udpipe-analysis@1|build-lemma-candidates@1|filter-lemma-candidates@1|score-lemma-index@1|persist-book-index@1"
+private let analysisIndexVersion: Int64 = 4
+private let preprocessingPipelineFingerprint = "udpipe-analysis@1|build-lemma-candidates@2|filter-lemma-candidates@1|score-lemma-index@2|persist-book-index@2"
 private let debugLemmaExportLimit = 1_000
 
 final class IosBookLibraryGateway: BookLibraryGateway {

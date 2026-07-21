@@ -14,16 +14,21 @@ It owns:
 - the shared `ReaderComponent` contract;
 - the current reader model exposed to UI;
 - reader-level actions such as back, previous, next, and locator updates;
-- reader-scoped subcomponents such as search;
+- reader-scoped subcomponents such as search and book words;
 - reader-scoped feature contracts that depend on the active publication,
   navigator, locator, selected text, or reader progress;
 - keeping shared reader state independent from Android Readium, iOS Readium,
   Compose, and SwiftUI implementation details.
 
-The current search feature is the first concrete reader-scoped subcomponent. It
-owns search visibility, query state, result pages, loading state, errors, and
-the selected search locator. Platform code owns the actual Readium search,
-navigation, and highlight behavior.
+Search owns search visibility, query state, result pages, loading state,
+errors, and the selected search locator. Platform code owns the actual Readium
+search, navigation, and highlight behavior.
+
+Words owns the reader-scoped vocabulary preview overlay for the active book. It
+loads the persisted important-word preview from shared storage through a narrow
+platform gateway. Lemmas remain internal lookup keys; reader UI should display
+stored surface words first and fall back to the lemma only when no surface word
+is available.
 
 The main source files are:
 
@@ -32,10 +37,15 @@ The main source files are:
 - `shared/src/commonMain/kotlin/com/example/myapplication/shared/reader/DefaultSearchComponent.kt`
 - `shared/src/commonMain/kotlin/com/example/myapplication/shared/reader/ReaderSearchGateway.kt`
 - `shared/src/commonMain/kotlin/com/example/myapplication/shared/reader/ReaderSearchModels.kt`
+- `shared/src/commonMain/kotlin/com/example/myapplication/shared/reader/WordsComponent.kt`
+- `shared/src/commonMain/kotlin/com/example/myapplication/shared/reader/DefaultWordsComponent.kt`
+- `shared/src/commonMain/kotlin/com/example/myapplication/shared/reader/ReaderWordsGateway.kt`
+- `shared/src/commonMain/kotlin/com/example/myapplication/shared/reader/ReaderWordItem.kt`
 - `app-android/src/main/kotlin/com/example/myapplication/android/reader/DefaultAndroidReaderComponent.kt`
 - `app-ios-swift/app-ios-swift/reader-platform/DefaultIosReaderComponent.swift`
 - `app-ios-swift/app-ios-swift/reader-platform/IosReaderRuntime.swift`
 - `app-ios-swift/app-ios-swift/reader-platform/IosReaderSearchGateway.swift`
+- `app-ios-swift/app-ios-swift/reader-platform/IosReaderWordsGateway.swift`
 - `app-ios-swift/app-ios-swift/reader-platform/ReaderView.swift`
 
 ## Out of scope
@@ -62,6 +72,7 @@ It exposes:
 
 - `model`: the current reader state;
 - `search`: the reader-scoped search subcomponent;
+- `words`: the reader-scoped important-words subcomponent;
 - `onBackClicked()`: asks the root-provided callback to close the reader;
 - `onPreviousClicked()`: asks the platform reader runtime to move backward;
 - `onNextClicked()`: asks the platform reader runtime to move forward;
@@ -122,6 +133,41 @@ from an older search request. A platform gateway may call callbacks
 asynchronously, and shared search state must remain valid when those callbacks
 arrive later than the user action that replaced them.
 
+## Words component contract
+
+`WordsComponent` is a reader-scoped modal subcomponent. It is not a root
+navigation destination: the active book remains open underneath the dimmed
+reader overlay, and reader position must not change when the overlay opens or
+closes.
+
+`WordsComponent.Model` contains:
+
+- `isVisible`: whether the words overlay is visible;
+- `status`: `Idle`, `Loading`, `Loaded`, `Empty`, or `Error`;
+- `items`: the stored important-word preview for the active book;
+- `errorMessage`: the current user-visible loading error, if any.
+
+`ReaderWordItem` contains:
+
+- `lemma`: the internal normalized lookup key;
+- `displayWord`: the primary surface word to show, falling back to `lemma`;
+- `totalCount`: the persisted book frequency;
+- `surfaceWords`: the stored real words from the book, ordered by descending
+  surface frequency.
+
+The words flow is:
+
+1. `onOpenRequested()` shows the overlay, enters `Loading`, clears previous
+   error state, and asks the gateway to load words for the active book.
+2. Gateway success moves the model to `Loaded` with items or `Empty` when the
+   list is empty.
+3. Gateway error moves the model to `Error` and stores `errorMessage`.
+4. `onDismissRequested()` hides the overlay.
+
+`DefaultWordsComponent` preserves the gateway ordering. It must not sort or
+filter the list again; `BookLibraryStore.getLemmaCounts(...)` owns the
+user-facing order and the current `100` item cap.
+
 ## Gateway contract
 
 `ReaderSearchGateway` is the narrow capability boundary between shared search
@@ -156,6 +202,18 @@ native selected text.
 available. It reports unavailable search errors and should not be treated as a
 production Readium implementation.
 
+`ReaderWordsGateway` is the narrow capability boundary between shared words
+state and platform storage wiring.
+
+It exposes:
+
+- `loadWords(onResult, onError)`.
+
+The gateway owns locating the active `BookItem` by reader `uriString`, reading
+`BookLibraryStore.getLemmaCounts(bookId)`, and mapping stored lemma counts to
+`ReaderWordItem`. It must not pass SQLDelight query rows, Readium objects,
+Compose, SwiftUI, Android, or UIKit types through `commonMain`.
+
 ## Platform responsibilities
 
 Android and iOS implement the shared reader/search contracts with platform
@@ -168,10 +226,12 @@ Android owns:
 - restoring and saving the last readable EPUB URI and locator;
 - reporting locator and progress changes to `ReaderComponent`;
 - implementing `ReaderSearchGateway` through Readium publication search;
+- implementing `ReaderWordsGateway` through shared `BookLibraryStore`;
 - mapping Readium locators to `ReaderSearchResultItem`;
+- mapping stored lemma counts to `ReaderWordItem`;
 - navigating to a selected search locator;
 - applying search highlight decorations;
-- rendering reader chrome and search overlay in Compose.
+- rendering reader chrome, search overlay, and words overlay in Compose.
 
 iOS Swift owns:
 
@@ -181,10 +241,12 @@ iOS Swift owns:
 - restoring and saving the last readable EPUB URI and locator;
 - reporting locator and progress changes to `ReaderComponent`;
 - implementing `ReaderSearchGateway` through Readium Swift publication search;
+- implementing `ReaderWordsGateway` through shared `BookLibraryStore`;
 - mapping Readium locators to `ReaderSearchResultItem`;
+- mapping stored lemma counts to `ReaderWordItem`;
 - navigating to a selected search locator;
 - applying search highlight decorations;
-- rendering reader chrome and search overlay in SwiftUI.
+- rendering reader chrome, search overlay, and words overlay in SwiftUI.
 
 The platform runtime decides how to translate native Readium events into shared
 reader model updates. The shared reader contract decides which state and actions
@@ -248,9 +310,10 @@ Suggested future subcomponents:
 
 - `ContentsComponent` for table of contents;
 - `ReaderSettingsComponent` for reader preferences;
-- `BookmarksComponent` for book-scoped bookmarks;
+- `BookmarksComponent` for book-scoped bookmarks, surfaced as a tab inside
+  `Contents` rather than a top-level reader chrome button;
 - `DictionaryComponent` for selected-word lookup;
-- `VocabularyPanelComponent` for book-scoped vocabulary surfaces.
+- `WordsComponent` for book-scoped vocabulary preview surfaces.
 
 ### 3. Define the platform boundary
 
@@ -357,6 +420,10 @@ For shared reader/search component changes, the default command is:
 pagination, stale callbacks, result navigation, and errors. Future reader
 subcomponents should add their own focused common tests when they introduce
 shared state or gateway contracts.
+
+`DefaultWordsComponentTest` covers words overlay open/dismiss behavior,
+loaded/empty/error states, `BookLemmaCount` to `ReaderWordItem` mapping, surface
+word fallback, and preservation of store ordering.
 
 Run Android and iOS runbooks when a change touches reader runtime integration,
 Readium navigation/search/highlighting, overlay rendering branches, or platform

@@ -38,7 +38,7 @@ class BookAnalysisProcessorTest {
         val analysisProvider = FakeTextAnalysisProvider(
             TextAnalysisResult.Success(
                 metadata = testMetadata(),
-                tokens = List(5) { testToken(lemma = "read") },
+                tokens = List(11) { testToken(lemma = "read") },
             ),
         )
 
@@ -51,7 +51,8 @@ class BookAnalysisProcessorTest {
         assertEquals(DefaultBookPreprocessingPipelineFingerprint, status.pipelineFingerprint)
         assertEquals(1L, status.uniqueLemmaCount)
         assertEquals(status, store.replacedStatus)
-        assertEquals(5L, store.replacedIndex?.lemmaCounts?.firstOrNull()?.totalCount)
+        assertEquals(11L, store.replacedIndex?.lemmaCounts?.firstOrNull()?.totalCount)
+        assertEquals(listOf("read"), store.replacedIndex?.lemmaCounts?.firstOrNull()?.surfaceWords)
     }
 
     @Test

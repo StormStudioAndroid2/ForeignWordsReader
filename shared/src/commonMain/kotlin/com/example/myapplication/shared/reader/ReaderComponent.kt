@@ -6,6 +6,7 @@ interface ReaderComponent {
 
     val model: Value<Model>
     val search: SearchComponent
+    val words: WordsComponent
 
     fun onBackClicked()
     fun onPreviousClicked()

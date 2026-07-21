@@ -8,13 +8,13 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material.Icon
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Slider
@@ -33,6 +33,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import kotlin.math.roundToInt
 
@@ -42,6 +43,7 @@ fun BoxScope.ReaderChromeOverlay(
     progress: Float,
     onProgressSeeked: (Float) -> Unit,
     onSearchClicked: () -> Unit,
+    onWordsClicked: () -> Unit,
 ) {
     AnimatedVisibility(
         visible = visible,
@@ -51,6 +53,7 @@ fun BoxScope.ReaderChromeOverlay(
     ) {
         ReaderTopStripe(
             onSearchClicked = onSearchClicked,
+            onWordsClicked = onWordsClicked,
         )
     }
 
@@ -70,6 +73,7 @@ fun BoxScope.ReaderChromeOverlay(
 @Composable
 private fun ReaderTopStripe(
     onSearchClicked: () -> Unit,
+    onWordsClicked: () -> Unit,
 ) {
     Surface(
         color = MaterialTheme.colors.surface.copy(alpha = 0.94f),
@@ -84,7 +88,8 @@ private fun ReaderTopStripe(
             horizontalArrangement = Arrangement.SpaceEvenly,
         ) {
             TextButton(
-                modifier = Modifier.widthIn(min = 88.dp),
+                modifier = Modifier.weight(1f),
+                contentPadding = PaddingValues(horizontal = 4.dp),
                 onClick = onSearchClicked,
             ) {
                 Icon(
@@ -92,29 +97,26 @@ private fun ReaderTopStripe(
                     contentDescription = null,
                 )
                 Spacer(modifier = Modifier.width(4.dp))
-                Text("Search")
-            }
-            TextButton(
-                modifier = Modifier.widthIn(min = 88.dp),
-                enabled = false,
-                onClick = {},
-            ) {
-                Text("Bookmark")
-            }
-            TextButton(
-                modifier = Modifier.widthIn(min = 88.dp),
-                enabled = false,
-                onClick = {},
-            ) {
-                Icon(
-                    imageVector = Icons.Filled.Settings,
-                    contentDescription = null,
+                Text(
+                    text = "Search",
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                 )
-                Spacer(modifier = Modifier.width(4.dp))
-                Text("Settings")
             }
             TextButton(
-                modifier = Modifier.widthIn(min = 88.dp),
+                modifier = Modifier.weight(1f),
+                contentPadding = PaddingValues(horizontal = 4.dp),
+                onClick = onWordsClicked,
+            ) {
+                Text(
+                    text = "Words",
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            TextButton(
+                modifier = Modifier.weight(1f),
+                contentPadding = PaddingValues(horizontal = 4.dp),
                 enabled = false,
                 onClick = {},
             ) {
@@ -123,7 +125,28 @@ private fun ReaderTopStripe(
                     contentDescription = null,
                 )
                 Spacer(modifier = Modifier.width(4.dp))
-                Text("Contents")
+                Text(
+                    text = "Contents",
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            TextButton(
+                modifier = Modifier.weight(1f),
+                contentPadding = PaddingValues(horizontal = 4.dp),
+                enabled = false,
+                onClick = {},
+            ) {
+                Icon(
+                    imageVector = Icons.Filled.Settings,
+                    contentDescription = null,
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    text = "Settings",
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
             }
         }
     }
