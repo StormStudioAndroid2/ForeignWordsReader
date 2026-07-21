@@ -174,9 +174,9 @@ class BookPreprocessingStageTest {
         val result = stage.process(
             testContext(
                 filteredLemmaCandidates = testFilteredCandidates(
-                    candidates = listOf(testCandidate(lemma = "book", dominantUpos = "NOUN", totalCount = 2L, zipf = 4.0)),
+                    candidates = listOf(testCandidate(lemma = "book", dominantUpos = "NOUN", totalCount = 11L, zipf = 4.0)),
                     chunkLemmaCounts = listOf(
-                        BookChunkLemmaCount(bookId = TestBook.id, chunkId = 0L, lemma = "book", localCount = 2L),
+                        BookChunkLemmaCount(bookId = TestBook.id, chunkId = 0L, lemma = "book", localCount = 11L),
                     ),
                 ),
             ),
@@ -194,7 +194,7 @@ class BookPreprocessingStageTest {
         val index = BookIndexBuilder().build(
             bookId = TestBook.id,
             metadata = testMetadata(),
-            tokens = List(5) { testToken(lemma = "book") },
+            tokens = List(11) { testToken(lemma = "book") },
             processedAtMillis = 3_000L,
         )
         val stage = PersistBookIndexStage(store = store)

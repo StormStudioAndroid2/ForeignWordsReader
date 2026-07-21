@@ -5,6 +5,7 @@ import com.example.myapplication.shared.main.BookItem
 import com.example.myapplication.shared.processing.BookChunkLemmaCount
 import com.example.myapplication.shared.processing.BookIndex
 import com.example.myapplication.shared.processing.BookLemmaCount
+import com.example.myapplication.shared.processing.BookLemmaSurfaceForm
 import com.example.myapplication.shared.processing.BookProcessingStore
 import com.example.myapplication.shared.processing.BookProcessingStatus
 import com.example.myapplication.shared.processing.BookProcessingState
@@ -113,6 +114,10 @@ class BookLibraryStore(
         index: BookIndex,
     ) {
         queries.transaction {
+            queries.deleteLemmaSurfaceForms(
+                book_id = status.bookId,
+                language = status.language,
+            )
             queries.deleteLemmaTotals(
                 book_id = status.bookId,
                 language = status.language,
@@ -132,6 +137,15 @@ class BookLibraryStore(
                     tf_idf_score = count.tfIdfScore,
                 )
             }
+            index.lemmaSurfaceForms.forEach { surfaceForm ->
+                queries.insertLemmaSurfaceForm(
+                    book_id = surfaceForm.bookId,
+                    language = status.language,
+                    lemma = surfaceForm.lemma,
+                    surface_word = surfaceForm.surfaceWord,
+                    surface_count = surfaceForm.count,
+                )
+            }
             index.chunkLemmaCounts.forEach { count ->
                 queries.insertChunkLemmaCount(
                     book_id = count.bookId,
@@ -144,8 +158,15 @@ class BookLibraryStore(
         }
     }
 
-    fun getLemmaCounts(bookId: String, language: String = DefaultAnalysisLanguage): List<BookLemmaCount> =
-        queries.selectLemmaTotals(
+    fun getLemmaCounts(bookId: String, language: String = DefaultAnalysisLanguage): List<BookLemmaCount> {
+        val surfaceWordsByLemma = getLemmaSurfaceForms(
+            bookId = bookId,
+            language = language,
+        )
+            .groupBy { it.lemma }
+            .mapValues { (_, surfaceForms) -> surfaceForms.map { it.surfaceWord } }
+
+        return queries.selectLemmaTotals(
             book_id = bookId,
             language = language,
             mapper = { rowBookId, _, lemma, totalCount, globalFrequencyZipf, tfIdfScore ->
@@ -155,6 +176,25 @@ class BookLibraryStore(
                     totalCount = totalCount,
                     globalFrequencyZipf = globalFrequencyZipf,
                     tfIdfScore = tfIdfScore,
+                    surfaceWords = surfaceWordsByLemma[lemma].orEmpty(),
+                )
+            },
+        ).executeAsList()
+    }
+
+    fun getLemmaSurfaceForms(
+        bookId: String,
+        language: String = DefaultAnalysisLanguage,
+    ): List<BookLemmaSurfaceForm> =
+        queries.selectLemmaSurfaceForms(
+            book_id = bookId,
+            language = language,
+            mapper = { rowBookId, _, lemma, surfaceWord, surfaceCount ->
+                BookLemmaSurfaceForm(
+                    bookId = rowBookId,
+                    lemma = lemma,
+                    surfaceWord = surfaceWord,
+                    count = surfaceCount,
                 )
             },
         ).executeAsList()

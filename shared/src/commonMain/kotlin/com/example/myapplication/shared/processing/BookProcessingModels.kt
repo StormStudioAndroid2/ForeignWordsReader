@@ -4,10 +4,12 @@ const val DefaultAnalysisLanguage: String = "en"
 const val DefaultAnalysisProvider: String = "udpipe"
 const val DefaultAnalysisModelId: String = "english-ewt"
 const val DefaultAnalysisModelVersion: String = "ud-2.5-191206"
-const val DefaultAnalysisIndexVersion: Long = 3L
+const val DefaultAnalysisIndexVersion: Long = 4L
 const val DefaultBookIndexChunkSize: Int = 800
+const val ImportantBookLemmaLimit: Int = 100
+const val ImportantBookLemmaMinTotalCount: Long = 10L
 const val DefaultBookPreprocessingPipelineFingerprint: String =
-    "udpipe-analysis@1|build-lemma-candidates@1|filter-lemma-candidates@1|score-lemma-index@1|persist-book-index@1"
+    "udpipe-analysis@1|build-lemma-candidates@2|filter-lemma-candidates@1|score-lemma-index@2|persist-book-index@2"
 
 enum class BookProcessingState {
     NotStarted,
@@ -138,6 +140,7 @@ data class BookLemmaCandidate(
     val uposCounts: Map<String, Long>,
     val dominantUpos: String,
     val propnRatio: Double,
+    val surfaceForms: List<BookLemmaSurfaceForm> = emptyList(),
 )
 
 data class BookLemmaCandidateIndex(
@@ -158,6 +161,14 @@ data class BookLemmaCount(
     val totalCount: Long,
     val globalFrequencyZipf: Double? = null,
     val tfIdfScore: Double = totalCount.toDouble(),
+    val surfaceWords: List<String> = emptyList(),
+)
+
+data class BookLemmaSurfaceForm(
+    val bookId: String,
+    val lemma: String,
+    val surfaceWord: String,
+    val count: Long,
 )
 
 data class BookChunkLemmaCount(
@@ -170,6 +181,7 @@ data class BookChunkLemmaCount(
 data class BookIndex(
     val metadata: BookIndexMetadata,
     val lemmaCounts: List<BookLemmaCount>,
+    val lemmaSurfaceForms: List<BookLemmaSurfaceForm> = emptyList(),
     val chunkLemmaCounts: List<BookChunkLemmaCount>,
 )
 

@@ -8,6 +8,8 @@ struct ReaderView: View {
     private var model: ReaderComponentModel
     @StateValue
     private var searchModel: SearchComponentModel
+    @StateValue
+    private var wordsModel: WordsComponentModel
     @ObservedObject
     private var readerState: IosReaderState
     @State
@@ -17,6 +19,7 @@ struct ReaderView: View {
         self.component = component
         _model = StateValue(component.model)
         _searchModel = StateValue(component.search.model)
+        _wordsModel = StateValue(component.words.model)
         readerState = (component as? DefaultIosReaderComponent)?.readerState ?? IosReaderState()
     }
 
@@ -30,8 +33,16 @@ struct ReaderView: View {
                 )
                 .transition(.opacity)
             }
+            if wordsModel.isVisible {
+                ReaderWordsOverlay(
+                    component: component.words,
+                    model: wordsModel
+                )
+                .transition(.opacity)
+            }
         }
         .animation(.easeInOut(duration: 0.2), value: searchModel.isVisible)
+        .animation(.easeInOut(duration: 0.2), value: wordsModel.isVisible)
         .navigationBarTitle(readerTitle, displayMode: .inline)
     }
 
@@ -55,10 +66,13 @@ struct ReaderView: View {
                 )
                 .padding([.bottom, .top])
                 ReaderChromeOverlay(
-                    visible: overlayVisible && !searchModel.isVisible,
+                    visible: overlayVisible && !searchModel.isVisible && !wordsModel.isVisible,
                     progress: model.readingProgress,
                     onSearchClicked: {
                         component.search.onOpenRequested()
+                    },
+                    onWordsClicked: {
+                        component.words.onOpenRequested()
                     },
                     onProgressSeeked: { progress in
                         Task {
@@ -81,6 +95,7 @@ private struct ReaderChromeOverlay: View {
     let visible: Bool
     let progress: Double
     let onSearchClicked: () -> Void
+    let onWordsClicked: () -> Void
     let onProgressSeeked: (Double) -> Void
 
     var body: some View {
@@ -88,7 +103,8 @@ private struct ReaderChromeOverlay: View {
             if visible {
                 VStack(spacing: 0) {
                     ReaderTopStripe(
-                        onSearchClicked: onSearchClicked
+                        onSearchClicked: onSearchClicked,
+                        onWordsClicked: onWordsClicked
                     )
                     Spacer()
                     ReaderBottomStripe(
@@ -105,6 +121,7 @@ private struct ReaderChromeOverlay: View {
 
 private struct ReaderTopStripe: View {
     let onSearchClicked: () -> Void
+    let onWordsClicked: () -> Void
 
     var body: some View {
         HStack(spacing: 0) {
@@ -115,20 +132,20 @@ private struct ReaderTopStripe: View {
                 action: onSearchClicked
             )
             ReaderChromeAction(
-                title: "Bookmark",
-                systemImage: "bookmark",
+                title: "Words",
+                systemImage: "textformat",
+                isEnabled: true,
+                action: onWordsClicked
+            )
+            ReaderChromeAction(
+                title: "Contents",
+                systemImage: "list.bullet",
                 isEnabled: false,
                 action: {}
             )
             ReaderChromeAction(
                 title: "Settings",
                 systemImage: "gearshape",
-                isEnabled: false,
-                action: {}
-            )
-            ReaderChromeAction(
-                title: "Contents",
-                systemImage: "list.bullet",
                 isEnabled: false,
                 action: {}
             )
@@ -448,6 +465,153 @@ private struct ReaderSearchResultRow: View {
 }
 
 private struct ReaderSearchEmptyState: View {
+    let message: String
+
+    var body: some View {
+        VStack {
+            Spacer()
+            Text(message)
+                .foregroundColor(.secondary)
+                .multilineTextAlignment(.center)
+            Spacer()
+        }
+        .frame(maxWidth: .infinity)
+    }
+}
+
+private struct ReaderWordsOverlay: View {
+    let component: WordsComponent
+    let model: WordsComponentModel
+
+    var body: some View {
+        GeometryReader { geometry in
+            ZStack(alignment: .top) {
+                Color.black.opacity(0.35)
+                    .ignoresSafeArea()
+                    .onTapGesture {
+                        component.onDismissRequested()
+                    }
+
+                VStack(spacing: 14) {
+                    HStack {
+                        Text("Words in book")
+                            .font(.headline)
+                        Spacer()
+                        Button {
+                            component.onDismissRequested()
+                        } label: {
+                            Image(systemName: "xmark")
+                                .font(.system(size: 17, weight: .semibold))
+                                .foregroundColor(.accentColor)
+                                .frame(width: 44, height: 44)
+                                .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Close words")
+                    }
+
+                    Text(summaryText)
+                        .font(.subheadline)
+                        .foregroundColor(summaryColor)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+
+                    switch model.status {
+                    case .idle, .loading:
+                        Spacer()
+                        ProgressView()
+                        Spacer()
+                    case .empty:
+                        ReaderWordsEmptyState(message: "No important words saved for this book yet.")
+                    case .error:
+                        ReaderWordsEmptyState(message: model.errorMessage ?? "Could not load words.")
+                    case .loaded:
+                        List {
+                            ForEach(model.items, id: \.lemma) { item in
+                                ReaderWordRow(item: item)
+                                    .listRowInsets(EdgeInsets(top: 8, leading: 0, bottom: 8, trailing: 0))
+                                    .listRowBackground(Color.clear)
+                            }
+                        }
+                        .listStyle(.plain)
+                    default:
+                        ReaderWordsEmptyState(message: "Words are unavailable.")
+                    }
+                }
+                .padding(16)
+                .frame(maxWidth: .infinity)
+                .frame(height: geometry.size.height * 0.82)
+                .background(Color(.systemBackground))
+                .overlay(alignment: .bottom) {
+                    Divider()
+                }
+            }
+        }
+        .ignoresSafeArea(edges: .bottom)
+    }
+
+    private var summaryText: String {
+        switch model.status {
+        case .idle, .loading:
+            return "Loading words..."
+        case .loaded:
+            return "\(model.items.count) words loaded"
+        case .empty:
+            return "No words available."
+        case .error:
+            return model.errorMessage ?? "Could not load words."
+        default:
+            return ""
+        }
+    }
+
+    private var summaryColor: Color {
+        model.status == .error ? .red : .secondary
+    }
+}
+
+private struct ReaderWordRow: View {
+    let item: ReaderWordItem
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 12) {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(item.displayWord)
+                    .font(.headline)
+                    .foregroundColor(.primary)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+
+                Text(item.lemma)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+
+                let extraSurfaceWords = Array(item.surfaceWords.dropFirst())
+                if !extraSurfaceWords.isEmpty {
+                    Text(extraSurfaceWords.joined(separator: ", "))
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                        .lineLimit(2)
+                        .truncationMode(.tail)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            Text("\(item.totalCount)")
+                .font(.subheadline.weight(.semibold))
+                .foregroundColor(.secondary)
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            RoundedRectangle(cornerRadius: 8)
+                .fill(Color(.secondarySystemBackground))
+        )
+    }
+}
+
+private struct ReaderWordsEmptyState: View {
     let message: String
 
     var body: some View {

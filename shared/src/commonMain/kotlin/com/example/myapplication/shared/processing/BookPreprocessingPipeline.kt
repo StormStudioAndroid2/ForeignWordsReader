@@ -115,7 +115,7 @@ class BuildLemmaCandidatesStage(
     private val clockMillis: () -> Long,
 ) : BookPreprocessingStage {
     override val stageId: String = "build-lemma-candidates"
-    override val version: Long = 1L
+    override val version: Long = 2L
 
     override fun process(context: BookPreprocessingContext): BookPreprocessingContext {
         val analysis = context.analysis ?: error("Text analysis must complete before building lemma candidates.")
@@ -148,7 +148,7 @@ class ScoreLemmaIndexStage(
     private val indexBuilder: BookIndexBuilder,
 ) : BookPreprocessingStage {
     override val stageId: String = "score-lemma-index"
-    override val version: Long = 1L
+    override val version: Long = 2L
 
     override fun process(context: BookPreprocessingContext): BookPreprocessingContext {
         val candidates = context.filteredLemmaCandidates ?: error("Lemma candidates must be filtered before scoring.")
@@ -160,7 +160,7 @@ class PersistBookIndexStage(
     private val store: BookProcessingStore,
 ) : BookPreprocessingStage {
     override val stageId: String = "persist-book-index"
-    override val version: Long = 1L
+    override val version: Long = 2L
 
     override fun process(context: BookPreprocessingContext): BookPreprocessingContext {
         val index = context.index ?: error("Lemma index must be built before persistence.")

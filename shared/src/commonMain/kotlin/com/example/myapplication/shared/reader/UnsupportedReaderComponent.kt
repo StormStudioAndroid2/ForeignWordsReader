@@ -16,6 +16,11 @@ class UnsupportedReaderComponent(
             gateway = EmptyReaderSearchGateway,
         )
 
+    override val words: WordsComponent =
+        DefaultWordsComponent(
+            gateway = EmptyReaderWordsGateway,
+        )
+
     override val model: Value<ReaderComponent.Model> =
         MutableValue(
             ReaderComponent.Model(

@@ -253,14 +253,17 @@ It owns:
 
 - subscribing to shared `ReaderComponent.Model`;
 - subscribing to shared `SearchComponent.Model`;
+- subscribing to shared `WordsComponent.Model`;
 - requiring a `DefaultAndroidReaderComponent` for actual Android reader
   rendering;
 - showing Android loading and error states;
 - hosting `ReadiumNavigatorHost` when the Android reader model is ready;
 - showing Android reader chrome over the Readium navigator;
 - opening the Android search overlay from reader chrome;
+- opening the Android words overlay from reader chrome;
 - forwarding search dismiss and result-click events to the shared search
   component;
+- forwarding words dismiss events to the shared words component;
 - translating progress slider changes into Android navigator seek requests.
 
 If a passed `ReaderComponent` is not an Android reader component, Android shows
@@ -271,13 +274,15 @@ shared reader implementation can host a Readium Kotlin navigator.
 Android controls include:
 
 - search;
-- disabled bookmark placeholder;
-- disabled settings placeholder;
+- words;
 - disabled contents placeholder;
+- disabled settings placeholder;
 - progress label and slider.
 
 Search state and result actions belong to the shared search component. The
-Android overlay only renders and routes events.
+words modal state belongs to the shared words component. The Android overlay
+only renders and routes events. Bookmarks should be added later as a tab inside
+Contents rather than returning as a top-level chrome action.
 
 ## Android reader runtime
 
@@ -292,10 +297,12 @@ It owns:
 - restoring a saved Readium locator from Android `SharedPreferences`;
 - saving locator JSON when shared reader progress changes;
 - storing the last opened readable EPUB URI for Android startup restore;
+- reading saved important words from `BookLibraryStore` for the words overlay;
 - building an `EpubNavigatorFragment` factory;
 - disabling Readium navigator inset padding because root Compose already
   applies system bar insets;
 - exposing `AndroidReaderModel` for Android UI rendering;
+- creating the shared `DefaultWordsComponent` with the Android words gateway;
 - attaching and detaching the current `EpubNavigatorFragment`;
 - closing publication and search resources when the runtime is destroyed.
 

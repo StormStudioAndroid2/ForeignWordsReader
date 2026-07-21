@@ -31,6 +31,7 @@ fun AndroidReaderContent(
 ) {
     val model by component.model.subscribeAsState()
     val searchModel by component.search.model.subscribeAsState()
+    val wordsModel by component.words.model.subscribeAsState()
     val androidComponent = component as? DefaultAndroidReaderComponent
     if (androidComponent == null) {
         UnsupportedReaderContent(
@@ -43,14 +44,22 @@ fun AndroidReaderContent(
     val androidModel by androidComponent.androidModel.subscribeAsState()
     var overlayVisible by remember(androidModel) { mutableStateOf(false) }
     var searchDialogVisible by remember(androidModel) { mutableStateOf(false) }
+    var wordsDialogVisible by remember(androidModel) { mutableStateOf(false) }
     var seekRequestId by remember(androidModel) { mutableStateOf(0) }
     var seekRequest by remember(androidModel) { mutableStateOf<Pair<Int, Float>?>(null) }
     val readerTitle = model.title.trim().ifEmpty { "EPUB Reader" }
     val effectiveSearchVisible = searchDialogVisible || searchModel.isVisible
+    val effectiveWordsVisible = wordsDialogVisible || wordsModel.isVisible
 
     LaunchedEffect(searchModel.isVisible) {
         if (!searchModel.isVisible && searchDialogVisible) {
             searchDialogVisible = false
+        }
+    }
+
+    LaunchedEffect(wordsModel.isVisible) {
+        if (!wordsModel.isVisible && wordsDialogVisible) {
+            wordsDialogVisible = false
         }
     }
 
@@ -95,7 +104,7 @@ fun AndroidReaderContent(
 
             if (androidModel is AndroidReaderModel.Ready) {
                 ReaderChromeOverlay(
-                    visible = overlayVisible && !effectiveSearchVisible,
+                    visible = overlayVisible && !effectiveSearchVisible && !effectiveWordsVisible,
                     progress = model.readingProgress.toFloat(),
                     onProgressSeeked = { progress ->
                         seekRequestId += 1
@@ -104,6 +113,10 @@ fun AndroidReaderContent(
                     onSearchClicked = {
                         searchDialogVisible = true
                         component.search.onOpenRequested()
+                    },
+                    onWordsClicked = {
+                        wordsDialogVisible = true
+                        component.words.onOpenRequested()
                     },
                 )
             }
@@ -118,6 +131,14 @@ fun AndroidReaderContent(
                 onResultClicked = { locatorJson ->
                     searchDialogVisible = false
                     component.search.onResultClicked(locatorJson)
+                },
+            )
+            ReaderWordsOverlay(
+                component = component.words,
+                model = wordsModel.copy(isVisible = effectiveWordsVisible),
+                onDismissRequested = {
+                    wordsDialogVisible = false
+                    component.words.onDismissRequested()
                 },
             )
         }

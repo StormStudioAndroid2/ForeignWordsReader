@@ -120,6 +120,7 @@ The SQL schema currently stores:
 - `book`: stable book id, URI, title, author, cover URI, and last-opened time;
 - `book_analysis_metadata`: per-book analysis status for a language;
 - `book_lemma_total`: persisted book-level lemma totals and scores;
+- `book_lemma_surface_form`: persisted real surface words for selected lemmas;
 - `book_chunk_lemma_count`: persisted per-chunk lemma counts.
 
 Library queries:
@@ -138,8 +139,14 @@ Processing queries:
 - `hasCurrentBookIndex(...)` checks completed analysis by language, provider,
   model version, index version, and pipeline fingerprint.
 - `upsertProcessingStatus(status)` writes processing state.
-- `replaceBookIndex(status, index)` atomically replaces lemma totals and chunk
-  counts for the book/language and stores the completed status.
+- `replaceBookIndex(status, index)` atomically replaces lemma totals, surface
+  forms, and chunk counts for the book/language and stores the completed
+  status.
+- `getLemmaCounts(bookId, language)` returns the user-facing important-word
+  preview ordered by total count, TF-IDF score, and lemma, with surface words
+  attached for display and lookup. The reader `Words` modal consumes this list
+  directly and expects it to remain capped to the persisted preview rather than
+  the full debug lemma index.
 
 `BookItem` is the UI-facing projection of `book` joined with
 `book_analysis_metadata`. Missing analysis metadata maps to

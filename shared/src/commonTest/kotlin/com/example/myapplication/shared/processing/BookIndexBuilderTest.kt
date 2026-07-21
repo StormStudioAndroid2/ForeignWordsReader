@@ -39,7 +39,7 @@ class BookIndexBuilderTest {
         val index = BookIndexBuilder().build(
             bookId = "book-1",
             metadata = metadata,
-            tokens = List(5) { token(lemma = "child", upos = "NOUN") } +
+            tokens = List(11) { token(lemma = "child", upos = "NOUN") } +
                 listOf(
                     token(lemma = ".", upos = "PUNCT", tokenType = TokenType.Punctuation),
                     token(lemma = "$", upos = "SYM", tokenType = TokenType.Symbol),
@@ -47,7 +47,7 @@ class BookIndexBuilderTest {
         )
 
         assertEquals(listOf("child"), index.lemmaCounts.map { it.lemma })
-        assertEquals(5, index.lemmaCounts.first { it.lemma == "child" }.totalCount)
+        assertEquals(11, index.lemmaCounts.first { it.lemma == "child" }.totalCount)
         assertFalse(index.chunkLemmaCounts.any { it.lemma == "." || it.lemma == "$" })
     }
 
@@ -72,12 +72,13 @@ class BookIndexBuilderTest {
         assertEquals(mapOf("VERB" to 2L, "NOUN" to 1L), read.uposCounts)
         assertEquals(0.0, read.propnRatio)
         assertEquals(3.5, read.globalFrequencyZipf)
+        assertEquals(listOf("read" to 2L, "Read" to 1L), read.surfaceForms.map { it.surfaceWord to it.count })
         assertEquals(4L, candidateIndex.metadata.tokenCount)
         assertEquals(2_000L, candidateIndex.metadata.processedAtMillis)
     }
 
     @Test
-    fun addsTfIdfLikeScoreWithoutChangingExistingTfCounts() {
+    fun scoresTfIdfThenReturnsImportantLemmasInUiOrder() {
         val frequencyRepository = FakeGlobalFrequencyRepository(
             mapOf(
                 "thing" to 6.5,
@@ -89,8 +90,8 @@ class BookIndexBuilderTest {
         )
         val tokens =
             List(30) { token(lemma = "thing", upos = "NOUN") } +
-                List(5) { token(lemma = "whale", upos = "NOUN") } +
-                List(3) { token(lemma = "harpoon", upos = "NOUN") } +
+                List(12) { token(lemma = "whale", upos = "NOUN") } +
+                List(11) { token(lemma = "harpoon", upos = "NOUN") } +
                 List(80) { token(lemma = "the", upos = "DET") } +
                 List(100) { token(lemma = "and", upos = "CCONJ") }
 
@@ -103,9 +104,78 @@ class BookIndexBuilderTest {
         )
 
         assertFalse(index.lemmaCounts.any { it.lemma == "the" || it.lemma == "and" })
-        assertEquals(listOf("harpoon", "whale"), index.lemmaCounts.take(2).map { it.lemma })
+        assertEquals(listOf("thing", "whale", "harpoon"), index.lemmaCounts.map { it.lemma })
         assertEquals(0.8, index.lemmaCounts.first { it.lemma == "harpoon" }.globalFrequencyZipf)
         assertTrue(index.lemmaCounts.first { it.lemma == "harpoon" }.tfIdfScore > index.lemmaCounts.first { it.lemma == "thing" }.tfIdfScore)
+    }
+
+    @Test
+    fun limitsImportantLemmasToTopHundredTfIdfCandidatesBeforeCountFiltering() {
+        val lowCountRareCandidates = (0 until 100).map { index ->
+            testCandidate(
+                lemma = "rare${index.toString().padStart(3, '0')}",
+                dominantUpos = "NOUN",
+                totalCount = 1L,
+                zipf = 0.0,
+            )
+        }
+        val frequentCommonCandidate = testCandidate(
+            lemma = "frequent",
+            dominantUpos = "NOUN",
+            totalCount = 1_000L,
+            zipf = 8.0,
+        )
+
+        val index = BookIndexBuilder().score(
+            testFilteredCandidates(
+                candidates = lowCountRareCandidates + frequentCommonCandidate,
+            ),
+        )
+
+        assertEquals(emptyList(), index.lemmaCounts)
+        assertEquals(emptyList(), index.lemmaSurfaceForms)
+    }
+
+    @Test
+    fun storesOnlyTopHundredImportantLemmas() {
+        val candidates = (0 until 120).map { index ->
+            testCandidate(
+                lemma = "lemma${index.toString().padStart(3, '0')}",
+                dominantUpos = "NOUN",
+                totalCount = 20L,
+                zipf = 4.0,
+            )
+        }
+
+        val index = BookIndexBuilder().score(testFilteredCandidates(candidates = candidates))
+
+        assertEquals(ImportantBookLemmaLimit, index.lemmaCounts.size)
+        assertEquals("lemma000", index.lemmaCounts.first().lemma)
+        assertEquals("lemma099", index.lemmaCounts.last().lemma)
+    }
+
+    @Test
+    fun keepsSurfaceWordsForSelectedLemmasInFrequencyOrder() {
+        val tokens =
+            List(8) { token(lemma = "remember", surface = "remembered", upos = "VERB") } +
+                List(3) { token(lemma = "remember", surface = "Remembered", upos = "VERB") } +
+                List(2) { token(lemma = "remember", surface = "remembering", upos = "VERB") } +
+                List(20) { token(lemma = "ordinary", surface = "ordinary", upos = "ADJ") }
+
+        val index = BookIndexBuilder().build(
+            bookId = "book-1",
+            metadata = metadata,
+            tokens = tokens,
+        )
+        val remember = index.lemmaCounts.first { it.lemma == "remember" }
+
+        assertEquals(listOf("remembered", "Remembered", "remembering"), remember.surfaceWords)
+        assertEquals(
+            listOf("remembered" to 8L, "Remembered" to 3L, "remembering" to 2L),
+            index.lemmaSurfaceForms
+                .filter { it.lemma == "remember" }
+                .map { it.surfaceWord to it.count },
+        )
     }
 
     @Test
@@ -128,18 +198,19 @@ class BookIndexBuilderTest {
                 "uniqueLemmas=${index.metadata.uniqueLemmaCount} elapsed=$elapsed",
         )
         assertEquals(5_000, index.metadata.tokenCount)
-        assertEquals(250, index.metadata.uniqueLemmaCount)
+        assertEquals(ImportantBookLemmaLimit.toLong(), index.metadata.uniqueLemmaCount)
     }
 
     private fun token(
         lemma: String,
+        surface: String = lemma,
         upos: String = "NOUN",
         tokenType: TokenType = TokenType.Word,
     ): AnalyzedToken =
         AnalyzedToken(
             sectionId = "section-1",
             tokenOrder = 0,
-            surface = lemma,
+            surface = surface,
             lemma = lemma,
             upos = upos,
             tokenType = tokenType,

@@ -257,26 +257,31 @@ It owns:
 
 - observing shared `ReaderComponent.Model`;
 - observing shared `SearchComponent.Model`;
+- observing shared `WordsComponent.Model`;
 - observing `IosReaderState` for iOS runtime phase;
 - showing SwiftUI loading and error states;
 - hosting `IosEpubReaderViewController` through `EpubNavigatorContainer`;
 - showing iOS reader chrome over the Readium navigator;
 - opening the iOS search overlay from reader chrome;
+- opening the iOS words overlay from reader chrome;
 - forwarding search dismiss, query, submit, clear, load-more, and result-click
   events to the shared search component;
+- forwarding words dismiss events to the shared words component;
 - translating progress slider changes into iOS reader navigation requests.
 
 `ReaderChromeOverlay` owns iOS reader chrome presentation. Its current controls
 include:
 
 - search;
-- disabled bookmark placeholder;
-- disabled settings placeholder;
+- words;
 - disabled contents placeholder;
+- disabled settings placeholder;
 - progress label and slider.
 
 Search state and result actions belong to the shared search component. The iOS
-overlay only renders and routes events.
+words modal state belongs to the shared words component. The iOS overlay only
+renders and routes events. Bookmarks should be added later as a tab inside
+Contents rather than returning as a top-level chrome action.
 
 ## iOS reader runtime
 
@@ -288,6 +293,7 @@ It owns:
 - creating `IosReaderRuntime`;
 - exposing `IosReaderState` for SwiftUI rendering;
 - creating the shared `DefaultSearchComponent` with the iOS search gateway;
+- creating the shared `DefaultWordsComponent` with the iOS words gateway;
 - closing the iOS runtime when the reader component is deallocated or closed;
 - delegating `onBackClicked` to the root-provided finish callback;
 - implementing `onPreviousClicked` and `onNextClicked` through the iOS runtime;

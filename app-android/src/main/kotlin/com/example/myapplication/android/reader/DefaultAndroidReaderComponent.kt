@@ -13,12 +13,18 @@ import com.arkivanov.essenty.instancekeeper.InstanceKeeper
 import com.arkivanov.essenty.instancekeeper.getOrCreate
 import androidx.core.content.edit
 import androidx.core.net.toUri
+import com.example.myapplication.shared.data.AndroidBookLibraryStoreFactory
 import com.example.myapplication.shared.reader.DefaultSearchComponent
+import com.example.myapplication.shared.reader.DefaultWordsComponent
 import com.example.myapplication.shared.reader.ReaderComponent
 import com.example.myapplication.shared.reader.ReaderSearchGateway
 import com.example.myapplication.shared.reader.ReaderSearchPage
 import com.example.myapplication.shared.reader.ReaderSearchResultItem
+import com.example.myapplication.shared.reader.ReaderWordItem
+import com.example.myapplication.shared.reader.ReaderWordsGateway
 import com.example.myapplication.shared.reader.SearchComponent
+import com.example.myapplication.shared.reader.WordsComponent
+import com.example.myapplication.shared.reader.toReaderWordItem
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -67,6 +73,7 @@ internal class DefaultAndroidReaderComponent(
 
     override val model: Value<ReaderComponent.Model> = runtime.model
     override val search: SearchComponent = DefaultSearchComponent(componentContext, runtime.searchGateway)
+    override val words: WordsComponent = DefaultWordsComponent(runtime.wordsGateway)
 
     val androidModel: Value<AndroidReaderModel> = runtime.androidModel
 
@@ -108,6 +115,7 @@ internal class DefaultAndroidReaderComponent(
         private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
         private val httpClient = DefaultHttpClient()
         private val assetRetriever = AssetRetriever(application.contentResolver, httpClient)
+        private val bookLibraryStore = AndroidBookLibraryStoreFactory(application).create()
         private val publicationParser = DefaultPublicationParser(
             context = application,
             httpClient = httpClient,
@@ -137,6 +145,7 @@ internal class DefaultAndroidReaderComponent(
         private var selectedSearchLocator: Locator? = null
         private var readerVersion = 0
         val searchGateway: ReaderSearchGateway = AndroidReaderSearchGateway()
+        val wordsGateway: ReaderWordsGateway = AndroidReaderWordsGateway()
 
         init {
             open()
@@ -455,6 +464,26 @@ internal class DefaultAndroidReaderComponent(
                     selectedSearchLocator = locator
                     renderSelectedSearchLocator()
                     onSuccess()
+                }
+            }
+        }
+
+        private inner class AndroidReaderWordsGateway : ReaderWordsGateway {
+            override fun loadWords(
+                onResult: (List<ReaderWordItem>) -> Unit,
+                onError: (String) -> Unit,
+            ) {
+                scope.launch {
+                    runCatching {
+                        withContext(Dispatchers.IO) {
+                            val book = bookLibraryStore.getBook(uriString)
+                                ?: throw IllegalStateException("Book is not in the local library yet.")
+                            bookLibraryStore.getLemmaCounts(book.id).map { it.toReaderWordItem() }
+                        }
+                    }.onSuccess(onResult)
+                        .onFailure { error ->
+                            onError(error.message ?: "Could not load words.")
+                        }
                 }
             }
         }

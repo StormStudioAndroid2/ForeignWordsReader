@@ -40,7 +40,10 @@ class BookIndexBuilder(
             val chunkId = wordLikeTokenCount / chunkSize
             wordLikeTokenCount += 1
             val accumulator = lemmaAccumulators.getOrPut(lemma) { LemmaAccumulator() }
-            accumulator.add(upos = token.normalizedUpos())
+            accumulator.add(
+                upos = token.normalizedUpos(),
+                surfaceWord = token.normalizedSurfaceWord(),
+            )
 
             val chunkKey = ChunkLemmaKey(chunkId = chunkId, lemma = lemma)
             chunkCounts[chunkKey] = (chunkCounts[chunkKey] ?: 0L) + 1L
@@ -72,6 +75,10 @@ class BookIndexBuilder(
                     uposCounts = accumulator.sortedUposCounts(),
                     dominantUpos = accumulator.dominantUpos(),
                     propnRatio = accumulator.propnRatio(),
+                    surfaceForms = accumulator.surfaceForms(
+                        bookId = bookId,
+                        lemma = lemma,
+                    ),
                 )
             },
             chunkLemmaCounts = chunkCounts.entries
@@ -100,7 +107,7 @@ class BookIndexBuilder(
 
     fun score(filteredCandidates: FilteredBookLemmaCandidates): BookIndex {
         val metadata = filteredCandidates.metadata
-        val lemmaCounts = filteredCandidates.lemmaCandidates
+        val scoredLemmaCounts = filteredCandidates.lemmaCandidates
             .map { candidate ->
                 BookLemmaCount(
                     bookId = candidate.bookId,
@@ -118,9 +125,34 @@ class BookIndexBuilder(
                     .thenByDescending { it.totalCount }
                     .thenBy { it.lemma },
             )
+        val selectedLemmaCounts = scoredLemmaCounts
+            .take(ImportantBookLemmaLimit)
+            .filter { it.totalCount > ImportantBookLemmaMinTotalCount }
+            .sortedWith(
+                compareByDescending<BookLemmaCount> { it.totalCount }
+                    .thenByDescending { it.tfIdfScore }
+                    .thenBy { it.lemma },
+            )
+        val selectedLemmas = selectedLemmaCounts.mapTo(mutableSetOf()) { it.lemma }
+        val surfaceFormsByLemma = filteredCandidates.lemmaCandidates
+            .associate { candidate -> candidate.lemma to candidate.surfaceForms }
+        val lemmaSurfaceForms = selectedLemmaCounts
+            .flatMap { count -> surfaceFormsByLemma[count.lemma].orEmpty() }
+        val lemmaCounts = selectedLemmaCounts.map { count ->
+            count.copy(
+                surfaceWords = surfaceFormsByLemma[count.lemma]
+                    .orEmpty()
+                    .map { it.surfaceWord },
+            )
+        }
 
         val chunkLemmaCounts = filteredCandidates.chunkLemmaCounts
-            .sortedWith(compareBy<BookChunkLemmaCount> { it.chunkId }.thenBy { it.lemma })
+            .filter { it.lemma in selectedLemmas }
+            .sortedWith(
+                compareBy<BookChunkLemmaCount> { it.chunkId }
+                    .thenByDescending { it.localCount }
+                    .thenBy { it.lemma },
+            )
 
         return BookIndex(
             metadata = BookIndexMetadata(
@@ -133,10 +165,15 @@ class BookIndexBuilder(
                 indexVersion = metadata.indexVersion,
                 tokenCount = metadata.tokenCount,
                 uniqueLemmaCount = lemmaCounts.size.toLong(),
-                savedIndexSizeBytes = estimateIndexSizeBytes(lemmaCounts, chunkLemmaCounts),
+                savedIndexSizeBytes = estimateIndexSizeBytes(
+                    lemmaCounts = lemmaCounts,
+                    lemmaSurfaceForms = lemmaSurfaceForms,
+                    chunkLemmaCounts = chunkLemmaCounts,
+                ),
                 processedAtMillis = metadata.processedAtMillis,
             ),
             lemmaCounts = lemmaCounts,
+            lemmaSurfaceForms = lemmaSurfaceForms,
             chunkLemmaCounts = chunkLemmaCounts,
         )
     }
@@ -152,15 +189,22 @@ class BookIndexBuilder(
     private fun AnalyzedToken.normalizedUpos(): String =
         upos.trim().ifBlank { UnknownUpos }
 
+    private fun AnalyzedToken.normalizedSurfaceWord(): String? =
+        surface.trim().takeUnless { it.isBlank() || it == "_" }
+
     private fun estimateIndexSizeBytes(
         lemmaCounts: List<BookLemmaCount>,
+        lemmaSurfaceForms: List<BookLemmaSurfaceForm>,
         chunkLemmaCounts: List<BookChunkLemmaCount>,
     ): Long {
         val globalBytes = lemmaCounts.sumOf {
             it.lemma.length.toLong() + LongByteSize + DoubleByteSize + DoubleByteSize
         }
+        val surfaceBytes = lemmaSurfaceForms.sumOf {
+            it.lemma.length.toLong() + it.surfaceWord.length.toLong() + LongByteSize
+        }
         val chunkBytes = chunkLemmaCounts.sumOf { it.lemma.length.toLong() + LongByteSize + LongByteSize }
-        return globalBytes + chunkBytes
+        return globalBytes + surfaceBytes + chunkBytes
     }
 
     private data class ChunkLemmaKey(
@@ -170,12 +214,19 @@ class BookIndexBuilder(
 
     private class LemmaAccumulator {
         private val uposCounts = linkedMapOf<String, Long>()
+        private val surfaceCounts = linkedMapOf<String, Long>()
 
         val totalCount: Long
             get() = uposCounts.values.sum()
 
-        fun add(upos: String) {
+        fun add(
+            upos: String,
+            surfaceWord: String?,
+        ) {
             uposCounts[upos] = (uposCounts[upos] ?: 0L) + 1L
+            if (surfaceWord != null) {
+                surfaceCounts[surfaceWord] = (surfaceCounts[surfaceWord] ?: 0L) + 1L
+            }
         }
 
         fun dominantUpos(): String =
@@ -191,6 +242,25 @@ class BookIndexBuilder(
 
         fun sortedUposCounts(): Map<String, Long> =
             sortedUposEntries().associate { (upos, count) -> upos to count }
+
+        fun surfaceForms(
+            bookId: String,
+            lemma: String,
+        ): List<BookLemmaSurfaceForm> =
+            surfaceCounts.entries
+                .sortedWith(
+                    compareByDescending<Map.Entry<String, Long>> { it.value }
+                        .thenBy { it.key.lowercase() }
+                        .thenBy { it.key },
+                )
+                .map { (surfaceWord, count) ->
+                    BookLemmaSurfaceForm(
+                        bookId = bookId,
+                        lemma = lemma,
+                        surfaceWord = surfaceWord,
+                        count = count,
+                    )
+                }
 
         private fun sortedUposEntries(): List<Map.Entry<String, Long>> =
             uposCounts.entries.sortedWith(
