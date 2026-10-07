@@ -13,6 +13,7 @@ import com.arkivanov.essenty.instancekeeper.InstanceKeeper
 import com.arkivanov.essenty.instancekeeper.getOrCreate
 import androidx.core.content.edit
 import androidx.core.net.toUri
+import com.example.myapplication.android.ui.reader.ReaderSelectionActionModeCallback
 import com.example.myapplication.shared.data.AndroidBookLibraryStoreFactory
 import com.example.myapplication.shared.reader.DefaultSearchComponent
 import com.example.myapplication.shared.reader.DefaultWordsComponent
@@ -144,6 +145,11 @@ internal class DefaultAndroidReaderComponent(
         private var navigator: EpubNavigatorFragment? = null
         private var selectedSearchLocator: Locator? = null
         private var readerVersion = 0
+        private val selectionActionModeCallback = ReaderSelectionActionModeCallback(
+            applicationContext = application,
+            scope = scope,
+            navigatorProvider = { navigator },
+        )
         val searchGateway: ReaderSearchGateway = AndroidReaderSearchGateway()
         val wordsGateway: ReaderWordsGateway = AndroidReaderWordsGateway()
 
@@ -244,6 +250,7 @@ internal class DefaultAndroidReaderComponent(
                     // The app root already applies system bar insets, so letting Readium add its
                     // own cutout padding causes the paginated viewport to grow after inset updates.
                     shouldApplyInsetsPadding = false,
+                    selectionActionModeCallback = selectionActionModeCallback,
                 ),
             )
 
@@ -482,7 +489,7 @@ internal class DefaultAndroidReaderComponent(
                         }
                     }.onSuccess(onResult)
                         .onFailure { error ->
-                            onError(error.message ?: "Could not load words.")
+                            onError(error.message ?: "Could not load frequent words.")
                         }
                 }
             }

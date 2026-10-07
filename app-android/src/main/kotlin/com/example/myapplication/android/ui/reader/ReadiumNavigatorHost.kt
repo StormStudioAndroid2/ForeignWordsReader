@@ -120,7 +120,10 @@ fun ReadiumNavigatorHost(
             }
         },
         update = { container ->
-            if (container.tag != state.readerKey) {
+            if (
+                !fragmentManager.isStateSaved &&
+                (container.tag != state.readerKey || fragmentManager.currentNavigator() == null)
+            ) {
                 container.tag = state.readerKey
                 fragmentManager.fragmentFactory = state.fragmentFactory
                 fragmentManager.commit {
@@ -143,10 +146,12 @@ private suspend fun FragmentManager.awaitCurrentNavigator(): EpubNavigatorFragme
 }
 
 fun FragmentManager.removeCurrentNavigator() {
-    findFragmentByTag(NavigatorTag)?.let { fragment ->
-        commitNow {
-            remove(fragment)
-        }
+    if (isStateSaved) {
+        return
+    }
+    val fragment = findFragmentByTag(NavigatorTag) ?: return
+    commitNow {
+        remove(fragment)
     }
 }
 

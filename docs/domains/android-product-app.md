@@ -90,8 +90,9 @@ It owns:
 - installing the Compose content tree with `AndroidRootContent`;
 - passing a debug batch processor only when `ApplicationInfo.FLAG_DEBUGGABLE`
   is set;
-- removing the current Readium navigator fragment in `onSaveInstanceState`
-  before delegating to the Android framework.
+- installing Readium's dummy navigator factory before Android restores a saved
+  Activity, then discarding the dummy navigator before Compose creates the real
+  reader host.
 
 `AndroidRootContent` owns Android rendering branches for the current root child:
 
@@ -304,6 +305,20 @@ It owns:
 - exposing `AndroidReaderModel` for Android UI rendering;
 - creating the shared `DefaultWordsComponent` with the Android words gateway;
 - attaching and detaching the current `EpubNavigatorFragment`;
+- installing Readium's `selectionActionModeCallback` and adapting selected
+  text to Android Dictionary, Translate, and Copy actions;
+- presenting a lifecycle-safe Dictionary app picker that combines unique
+  Define and Process Text handler packages, offers an unchecked
+  `Always use this app` choice, and directly launches a valid remembered
+  package on later requests;
+- persisting only the global remembered Dictionary package in Android-private
+  preferences, with no time expiry, and clearing it when discovery or launch
+  proves that the target is unavailable; there is no in-app reset control for
+  a still-valid remembered package;
+- launching dictionary targets and translation choosers only from the attached
+  reader Activity, without creating a separate task;
+- giving an active reader selection first priority for system Back so Back
+  dismisses the contextual action mode before root navigation runs;
 - closing publication and search resources when the runtime is destroyed.
 
 It does not own shared reader navigation semantics. `onBackClicked` delegates to
@@ -326,6 +341,9 @@ It owns:
 - creating a `FragmentContainerView` inside `AndroidView`;
 - installing the Readium fragment through `FragmentManager`;
 - waiting for the current navigator fragment to be available;
+- retaining the live navigator when the Activity is temporarily covered by an
+  external surface and installing a replacement when no current navigator is
+  attached and FragmentManager state is writable;
 - attaching a `DirectionalNavigationAdapter`;
 - toggling Android reader chrome on center taps;
 - collecting `currentLocator` from the navigator;
@@ -414,8 +432,16 @@ Android code must preserve these lifecycle boundaries:
   current-session access without granting persistable access;
 - `lastReadableEpubUriString(context)` must only return URIs with persisted read
   permission;
-- `MainActivity.onSaveInstanceState` removes the current Readium navigator
-  before saving state;
+- saving Activity state must not remove the live Readium navigator, because an
+  external Activity can save this Activity without destroying it;
+- when Android recreates `MainActivity`, install
+  `EpubNavigatorFragment.createDummyFactory()` before `super.onCreate`, remove
+  the restored dummy immediately after `super.onCreate`, and let the reader
+  runtime create a real navigator after reopening the persisted book URI and
+  locator;
+- remove a live navigator only when its reader host is genuinely disposed and
+  FragmentManager state is still writable; never use a state-loss transaction
+  to simulate reader disposal during Activity state saving;
 - reader runtime owns the active publication and must close it on destroy;
 - search runtime owns the active Readium search iterator and must close it when
   search is cancelled or the runtime is destroyed;

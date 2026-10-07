@@ -30,11 +30,19 @@ import com.example.myapplication.android.ui.reader.removeCurrentNavigator
 import com.example.myapplication.shared.root.DefaultRootComponent
 import com.example.myapplication.shared.root.RootComponent
 import com.example.myapplication.shared.root.RootComponent.Child
+import org.readium.r2.navigator.epub.EpubNavigatorFragment
 
 class MainActivity : FragmentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        if (savedInstanceState != null) {
+            supportFragmentManager.fragmentFactory =
+                EpubNavigatorFragment.createDummyFactory()
+        }
         super.onCreate(savedInstanceState)
+        if (savedInstanceState != null) {
+            supportFragmentManager.removeCurrentNavigator()
+        }
 
         val bookLibraryGateway = AndroidBookLibraryGateway(application)
         val root = DefaultRootComponent(
@@ -58,11 +66,6 @@ class MainActivity : FragmentActivity() {
                 debugBatchProcessor = bookLibraryGateway.takeIf { application.isDebuggable() },
             )
         }
-    }
-
-    override fun onSaveInstanceState(outState: Bundle) {
-        supportFragmentManager.removeCurrentNavigator()
-        super.onSaveInstanceState(outState)
     }
 }
 

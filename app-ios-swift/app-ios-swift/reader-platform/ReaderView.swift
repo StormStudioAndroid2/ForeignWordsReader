@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 import shared
 
 struct ReaderView: View {
@@ -494,7 +495,7 @@ private struct ReaderWordsOverlay: View {
 
                 VStack(spacing: 14) {
                     HStack {
-                        Text("Words in book")
+                        Text("Frequent words")
                             .font(.headline)
                         Spacer()
                         Button {
@@ -515,15 +516,22 @@ private struct ReaderWordsOverlay: View {
                         .foregroundColor(summaryColor)
                         .frame(maxWidth: .infinity, alignment: .leading)
 
+                    if model.status == .loaded {
+                        Text("Grouped forms from this book. Numbers show how many times each word appears.")
+                            .font(.footnote)
+                            .foregroundColor(.secondary)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+
                     switch model.status {
                     case .idle, .loading:
                         Spacer()
                         ProgressView()
                         Spacer()
                     case .empty:
-                        ReaderWordsEmptyState(message: "No important words saved for this book yet.")
+                        ReaderWordsEmptyState(message: "No frequent words are ready for this book yet.")
                     case .error:
-                        ReaderWordsEmptyState(message: model.errorMessage ?? "Could not load words.")
+                        ReaderWordsEmptyState(message: model.errorMessage ?? "Could not load frequent words.")
                     case .loaded:
                         List {
                             ForEach(model.items, id: \.lemma) { item in
@@ -552,13 +560,13 @@ private struct ReaderWordsOverlay: View {
     private var summaryText: String {
         switch model.status {
         case .idle, .loading:
-            return "Loading words..."
+            return "Loading frequent words..."
         case .loaded:
-            return "\(model.items.count) words loaded"
+            return "\(model.items.count) frequent words found"
         case .empty:
-            return "No words available."
+            return "No frequent words are ready for this book yet."
         case .error:
-            return model.errorMessage ?? "Could not load words."
+            return model.errorMessage ?? "Could not load frequent words."
         default:
             return ""
         }
@@ -572,35 +580,65 @@ private struct ReaderWordsOverlay: View {
 private struct ReaderWordRow: View {
     let item: ReaderWordItem
 
+    @State
+    private var activeSheet: ReaderWordExternalSheet?
+
     var body: some View {
-        HStack(alignment: .top, spacing: 12) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(item.displayWord)
-                    .font(.headline)
-                    .foregroundColor(.primary)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-
-                Text(item.lemma)
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
-
-                let extraSurfaceWords = Array(item.surfaceWords.dropFirst())
-                if !extraSurfaceWords.isEmpty {
-                    Text(extraSurfaceWords.joined(separator: ", "))
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                        .lineLimit(2)
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(alignment: .top, spacing: 12) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(displayWord)
+                        .font(.headline)
+                        .foregroundColor(.primary)
+                        .lineLimit(1)
                         .truncationMode(.tail)
+
+                    if shouldShowBaseForm {
+                        Text("Base form: \(lemma)")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                    }
+
+                    let extraSurfaceWords = Array(normalizedSurfaceWords.dropFirst())
+                    if !extraSurfaceWords.isEmpty {
+                        Text("Forms: \(extraSurfaceWords.joined(separator: ", "))")
+                            .font(.subheadline)
+                            .foregroundColor(.secondary)
+                            .lineLimit(2)
+                            .truncationMode(.tail)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+                Text(frequencyLabel(item.totalCount))
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundColor(.secondary)
+                    .multilineTextAlignment(.trailing)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: true, vertical: false)
+                    .accessibilityLabel(frequencyAccessibilityLabel(item.totalCount))
+            }
+
+            HStack(spacing: 8) {
+                ReaderWordActionButton(
+                    title: "Dictionary",
+                    systemImage: "book",
+                    isEnabled: !actionText.isEmpty
+                ) {
+                    present(.dictionary(actionText))
+                }
+
+                ReaderWordActionButton(
+                    title: "Translate",
+                    systemImage: "translate",
+                    isEnabled: !actionText.isEmpty
+                ) {
+                    present(.translate(actionText))
                 }
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-
-            Text("\(item.totalCount)")
-                .font(.subheadline.weight(.semibold))
-                .foregroundColor(.secondary)
+            .padding(.top, 1)
         }
         .padding(12)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -608,7 +646,128 @@ private struct ReaderWordRow: View {
             RoundedRectangle(cornerRadius: 8)
                 .fill(Color(.secondarySystemBackground))
         )
+        .sheet(item: $activeSheet) { sheet in
+            switch sheet {
+            case .dictionary(let term):
+                ReferenceLibrarySheet(term: term)
+            case .translate(let text):
+                ActivityShareSheet(text: text)
+            }
+        }
     }
+
+    private var actionText: String {
+        let trimmedDisplayWord = item.displayWord.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !trimmedDisplayWord.isEmpty {
+            return trimmedDisplayWord
+        }
+        return item.lemma.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private var displayWord: String {
+        actionText
+    }
+
+    private var lemma: String {
+        item.lemma.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private var normalizedSurfaceWords: [String] {
+        item.surfaceWords
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+    }
+
+    private var shouldShowBaseForm: Bool {
+        !lemma.isEmpty && lemma.compare(displayWord, options: [.caseInsensitive]) != .orderedSame
+    }
+
+    private func present(_ sheet: ReaderWordExternalSheet) {
+        guard !actionText.isEmpty else { return }
+        activeSheet = sheet
+    }
+}
+
+private struct ReaderWordActionButton: View {
+    let title: String
+    let systemImage: String
+    let isEnabled: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 4) {
+                Image(systemName: systemImage)
+                    .font(.system(size: 15, weight: .regular))
+                    .imageScale(.medium)
+                Text(title)
+                    .font(.footnote.weight(.medium))
+            }
+            .lineLimit(1)
+            .padding(.horizontal, 4)
+            .padding(.vertical, 3)
+            .frame(minHeight: 30)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .foregroundColor(isEnabled ? .accentColor : .secondary)
+        .disabled(!isEnabled)
+        .accessibilityLabel(title)
+    }
+}
+
+private enum ReaderWordExternalSheet: Identifiable {
+    case dictionary(String)
+    case translate(String)
+
+    var id: String {
+        switch self {
+        case .dictionary(let term):
+            return "dictionary-\(term)"
+        case .translate(let text):
+            return "translate-\(text)"
+        }
+    }
+}
+
+private struct ReferenceLibrarySheet: UIViewControllerRepresentable {
+    let term: String
+
+    func makeUIViewController(context: Context) -> UIReferenceLibraryViewController {
+        UIReferenceLibraryViewController(term: term)
+    }
+
+    func updateUIViewController(
+        _ uiViewController: UIReferenceLibraryViewController,
+        context: Context
+    ) {
+    }
+}
+
+private struct ActivityShareSheet: UIViewControllerRepresentable {
+    let text: String
+
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        UIActivityViewController(activityItems: [text], applicationActivities: nil)
+    }
+
+    func updateUIViewController(
+        _ uiViewController: UIActivityViewController,
+        context: Context
+    ) {
+    }
+}
+
+private func frequencyLabel(_ count: Int64) -> String {
+    "\(count) \(timesWord(count))"
+}
+
+private func frequencyAccessibilityLabel(_ count: Int64) -> String {
+    "\(count) \(timesWord(count)) in this book"
+}
+
+private func timesWord(_ count: Int64) -> String {
+    count == 1 ? "time" : "times"
 }
 
 private struct ReaderWordsEmptyState: View {
